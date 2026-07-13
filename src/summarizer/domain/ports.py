@@ -118,7 +118,8 @@ class PromptBuilder(Protocol):
     conversation and extracted attachments.  Outputs the JSON schema
     from ``LlmSummaryOutput.model_json_schema()`` for guided decoding."""
 
-    prompt_version: str
+    @property
+    def prompt_version(self) -> str: ...
 
     def build(
         self,
