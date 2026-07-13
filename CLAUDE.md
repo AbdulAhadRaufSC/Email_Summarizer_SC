@@ -406,11 +406,15 @@ def build_use_case(settings: Settings) -> SummarizeTicket:
 ## Open questions / not yet decided
 
 - **LLD chunk 2** (configuration strategy, logging/observability strategy, testing strategy, full prompt-versioning strategy) was scoped but never delivered — being resolved just-in-time per module (per user's call on 2026-07-10) rather than as a standalone doc.
-- Exact vLLM `--max-model-len` for the RunPod deployment — treat as config, not hardcoded, until confirmed.
-- Whether `emailMetaId` already exists as a column on the live `ticketAiSummary` table, or needs to be added via migration.
 - If ticket-merge support is ever added to Stepping Desk, the CAS monotonicity assumption must be revisited (currently safe because merges are not supported).
 - **Integration tests for `MySqlSummaryRepository` have never been executed.** They're written (testcontainers + real MySQL 8.0), but the dev sandbox that wrote them has no Docker. Run `uv run pytest -m integration` wherever Docker is available (or in CI) before trusting the concurrency/locking behavior in production. Everything covered by `uv run pytest` (default, unit only) has been run and passes.
 - No CI pipeline configured yet — tests are currently only run locally/on-demand.
+
+Resolved since the above was originally written (user answers captured in `implementation_plan.md`):
+- `--max-model-len` is **16384 tokens**, wired as `LlmSettings.max_context_tokens` (`config/settings.py`), not hardcoded.
+- `emailMetaId` **already exists** on the live `ticketAiSummary` table — no migration needed.
+- **SQS setup is deferred** (the team will wire it up later). Until then, a CLI entrypoint (`entrypoints/cli.py`, not yet built) drives the pipeline for a single `ticketId` at a time so the pipeline can be tested end-to-end without SQS. The SQS consumer will be a thin wrapper around the same `SummarizeTicket` orchestrator when it's added — this does not change the CAS/queueing design above.
+- Email API: no auth, no rate limits, any non-200 is an error (404 specifically maps to `EmailNotYetAvailable` for the RYW gate), response is always a JSON array.
 
 ## Implementation notes (deviations from the LLD sketch, decided during Phase 5)
 
@@ -422,8 +426,18 @@ These were resolved while implementing `MySqlSummaryRepository` (the first modul
 - **Driver**: PyMySQL (pure Python, no C build toolchain — relevant since local dev happens on Windows) rather than an ORM. The CAS write is a couple of hand-tuned queries where controlling the exact `WHERE`/locking semantics matters more than ORM convenience.
 - The pure "given stored/incoming marker + mode, what should happen" decision logic is factored out as a standalone function (`decide_write` in `mysql_summary_repository.py`) specifically so it's unit-testable without a database — it's the part that encodes the R1 staleness guard and the frontier-non-regression invariant.
 
-## Current status (as of 2026-07-10)
+## Current status (as of 2026-07-13)
 
 - Phases 1–3 (requirements gathering, business analysis, HLD) complete and approved.
 - Phase 4 (LLD) chunk 1 complete and approved: canonical schema, folder structure, ports, DI sketch. Chunk 2 deferred, being resolved just-in-time.
-- Phase 5 (implementation): started. Project scaffolded with `uv` (Python 3.12, `src/summarizer` layout, ruff + mypy strict + pytest configured). Built so far: `domain/schema/v1.py`, `domain/errors.py`, `domain/ports.py` (partial — only what `SummaryRepository` needs; the other six ports get added with their own modules), and `adapters/persistence/mysql_summary_repository.py` (the CAS/reprocess write logic — the piece the user chose to de-risk first). 32 unit tests passing (`uv run pytest`); 8 integration tests written but not yet executed (see Open Questions). Nothing else in the pipeline (email retrieval, attachment extraction, normalization, prompting, LLM client, validation, entrypoints) has been built yet.
+- Phase 5 (implementation): in progress, following the module-by-module build order in `implementation_plan.md`. Built and stabilized (unit-tested, `mypy --strict` clean, `ruff` clean):
+  - `domain/schema/v1.py`, `domain/errors.py`, `domain/models.py`, `domain/ports.py` (all seven ports now declared).
+  - `adapters/persistence/mysql_summary_repository.py` — CAS/reprocess write logic (built first, per the "de-risk the hardest part first" call on 2026-07-10).
+  - `config/settings.py`, `config/logging_config.py` — pydantic-settings config (`.env`-driven) + structured JSON logging. Note: `pyproject.toml`'s `[tool.mypy]` now sets `plugins = ["pydantic.mypy"]`, required for `Settings`' nested `Field(default_factory=...)` sub-settings to type-check under strict mode.
+  - `adapters/email/mysql_email_metadata.py`, `adapters/email/http_email_gateway.py` — email retrieval (MySQL ref enumeration + HTTP fetch from the internal Email API).
+  - `adapters/extraction/` (`extractor.py` + `handlers.py`) — sandboxed attachment extraction (PDF/DOCX/XLSX/CSV/TXT), per-attachment timeout + size + decompression-ratio caps, never raises. XXE/billion-laughs hardening is satisfied for free: `python-docx` sets `resolve_entities=False` on its own lxml parser, and `openpyxl` auto-detects `lxml` (present transitively via `python-docx`) and does the same — no `defusedxml` dependency needed.
+  - `adapters/normalize/normalizer.py` — quote-stripping (via `email_reply_parser` + regex fallback), signature/disclaimer removal, thread dedup.
+  - `adapters/prompt/prompt_builder.py` + `templates/v1/system.txt` — versioned, token-budgeted prompt assembly for Qwen2.5-Instruct's chat template; truncation order (attachments first, then oldest emails) matches the locked design.
+  - 103 unit tests passing (`uv run pytest`); 8 integration tests for `MySqlSummaryRepository` still unexecuted (see Open Questions — needs Docker).
+- Not yet built: `adapters/llm/runpod_vllm_client.py`, `adapters/validation/pydantic_validator.py`, the `application/` orchestrator (`command.py`, `result.py`, `summarize_ticket.py`), `composition.py`, and `entrypoints/cli.py`. See `implementation_plan.md` steps 8–12 for the remaining build order.
+- A `runpod_context.py` reference snippet (RunPod async `/run` + poll `/status` pattern) sits at the repo root, provided by the user as a model for `RunpodVllmClient` — not itself part of the package.

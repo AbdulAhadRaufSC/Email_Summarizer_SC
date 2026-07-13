@@ -50,3 +50,15 @@ class ConversationUnreconstructable(TerminalError):
 class LlmOutputInvalidExhausted(TerminalError):
     """LLM output failed schema validation after exhausting app-level
     retries."""
+
+
+class LlmOutputInvalid(SummarizerError):
+    """LLM output failed schema validation on a single attempt.
+
+    This is intentionally **not** in the TransientError/TerminalError
+    hierarchy: it is caught and retried inside the orchestrator's
+    app-level retry loop, not by the SQS entrypoint.  After exhausting
+    retries the orchestrator raises ``LlmOutputInvalidExhausted``
+    (TerminalError) instead.
+    """
+

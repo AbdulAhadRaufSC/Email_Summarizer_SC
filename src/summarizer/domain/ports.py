@@ -1,18 +1,27 @@
 """Port interfaces for the summarization pipeline, defined as Protocols
 (structural typing -> trivial fakes in tests).
 
-Only the pieces needed by modules built so far are declared here. The
-other ports named in CLAUDE.md (EmailMetadataRepository, EmailGateway,
-AttachmentExtractor, ThreadNormalizer, PromptBuilder, LLMClient,
-Validator) get added as their own modules are implemented, so this file
-never references domain/models.py types that don't exist yet.
+Every port the pipeline depends on is declared here.  Concrete
+implementations live in ``adapters/`` and are wired in
+``composition.py``.
 """
 
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
-from summarizer.domain.schema.v1 import SummaryDocument
+from summarizer.domain.models import (
+    EmailRef,
+    ExtractedAttachment,
+    LlmRawResponse,
+    NormalizedConversation,
+    Prompt,
+    RawAttachment,
+    RawEmail,
+)
+from summarizer.domain.schema.v1 import LlmSummaryOutput, SummaryDocument
+
+# ── Enums ────────────────────────────────────────────────────────────
 
 
 class WriteMode(StrEnum):
@@ -35,6 +44,9 @@ class PersistedSummaryStatus(StrEnum):
 
     OK = "OK"
     PARTIAL = "PARTIAL"
+
+
+# ── DTOs ─────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +75,76 @@ class SummaryWrite:
     token_output: int | None = None
     retry_count: int = 0
     error_message: str | None = None
+
+
+# ── Port Protocols ───────────────────────────────────────────────────
+
+
+class EmailMetadataRepository(Protocol):
+    """Enumerates a ticket's emails from MySQL ``Email_Metadata``,
+    ordered by ``emailMetaId`` ascending.  Excludes drafts and deleted
+    rows; includes notes (``isNote=1``)."""
+
+    def list_email_refs(self, ticket_id: int) -> list[EmailRef]: ...
+
+
+class EmailGateway(Protocol):
+    """Fetches full email content + attachments from the internal Email
+    API.  Raises ``EmailNotYetAvailable`` (RYW gate) or
+    ``EmailApiTransient`` on failure."""
+
+    def fetch_email(self, message_id: str) -> RawEmail: ...
+
+
+class AttachmentExtractor(Protocol):
+    """Extracts text from a raw attachment.  Sandboxed, size/time/ratio
+    capped.  **Never raises** for one bad file — returns an
+    ``ExtractedAttachment`` with status ``METADATA_ONLY`` or
+    ``FAILED``."""
+
+    def extract(self, attachment: RawAttachment) -> ExtractedAttachment: ...
+
+
+class ThreadNormalizer(Protocol):
+    """Cleans a list of raw emails into a normalised conversation:
+    quote-stripping, deduplication, signature/disclaimer removal.
+    PII-mask hook lives behind this interface for future use."""
+
+    def normalize(self, emails: list[RawEmail]) -> NormalizedConversation: ...
+
+
+class PromptBuilder(Protocol):
+    """Builds a versioned, token-budgeted prompt from the normalised
+    conversation and extracted attachments.  Outputs the JSON schema
+    from ``LlmSummaryOutput.model_json_schema()`` for guided decoding."""
+
+    prompt_version: str
+
+    def build(
+        self,
+        conversation: NormalizedConversation,
+        attachments: list[ExtractedAttachment],
+        *,
+        context_budget: int,
+    ) -> Prompt: ...
+
+
+class LLMClient(Protocol):
+    """One guided-JSON call to RunPod/vLLM.  Raises ``LlmTransient`` on
+    timeout/5xx.  Returns raw text and token usage."""
+
+    model_name: str
+    model_version: str
+
+    def complete(self, prompt: Prompt) -> LlmRawResponse: ...
+
+
+class Validator(Protocol):
+    """Parses + schema-validates raw LLM output into
+    ``LlmSummaryOutput``.  Raises ``LlmOutputInvalid`` on failure,
+    which drives an app-level retry."""
+
+    def validate(self, raw: LlmRawResponse) -> LlmSummaryOutput: ...
 
 
 class SummaryRepository(Protocol):
