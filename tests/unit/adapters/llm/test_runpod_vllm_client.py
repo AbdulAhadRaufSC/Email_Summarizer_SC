@@ -12,7 +12,8 @@ from summarizer.domain.models import Prompt
 
 def _prompt() -> Prompt:
     return Prompt(
-        text="<|im_start|>system\n...<|im_end|>",
+        system_message="You are a precise summarizer. Schema: {...}",
+        user_message="## Ticket Subject\nCannot log in\n\n## Email Conversation\n...",
         json_schema={"type": "object", "properties": {"human_summary": {"type": "string"}}},
         prompt_version="v1",
         estimated_tokens=42,
@@ -34,42 +35,27 @@ class _FakeResponse:
 
 
 class _FakeSession:
-    """Serves queued responses in order; `post` and `get` share nothing
-    but each pulls from its own queue so submit vs poll can be scripted
-    independently."""
-
-    def __init__(
-        self,
-        post_responses: list[_FakeResponse] | None = None,
-        get_responses: list[_FakeResponse] | None = None,
-        post_exc: Exception | None = None,
-    ):
-        self._post_responses = list(post_responses or [])
-        self._get_responses = list(get_responses or [])
-        self._post_exc = post_exc
-        self.post_calls: list[dict[str, Any]] = []
-        self.get_calls: list[dict[str, Any]] = []
+    def __init__(self, response: _FakeResponse | None = None, raise_exc: Exception | None = None):
+        self._response = response
+        self._raise_exc = raise_exc
+        self.last_call: dict[str, Any] | None = None
 
     def post(
         self, url: str, headers: dict[str, str], json: dict[str, Any], timeout: int
     ) -> _FakeResponse:
-        self.post_calls.append({"url": url, "headers": headers, "json": json, "timeout": timeout})
-        if self._post_exc is not None:
-            raise self._post_exc
-        return self._post_responses.pop(0)
-
-    def get(self, url: str, headers: dict[str, str], timeout: int) -> _FakeResponse:
-        self.get_calls.append({"url": url, "headers": headers, "timeout": timeout})
-        return self._get_responses.pop(0)
+        self.last_call = {"url": url, "headers": headers, "json": json, "timeout": timeout}
+        if self._raise_exc is not None:
+            raise self._raise_exc
+        assert self._response is not None
+        return self._response
 
 
 def _client_with(session: _FakeSession, **overrides: Any) -> RunpodVllmClient:
     fields: dict[str, Any] = {
         "endpoint_id": "ep-123",
         "api_key": "secret",
-        "model_name": "Qwen2.5-7B-Instruct",
+        "model_name": "Qwen/Qwen2.5-7B-Instruct",
         "model_version": "2.5",
-        "poll_interval_seconds": 0.0,
         **overrides,
     }
     client = RunpodVllmClient(**fields)
@@ -77,18 +63,14 @@ def _client_with(session: _FakeSession, **overrides: Any) -> RunpodVllmClient:
     return client
 
 
-_COMPLETED_OUTPUT = {
-    "status": "COMPLETED",
-    "output": [{"choices": [{"tokens": ["  {\"human_summary\": \"ok\"}  "]}]}],
+_COMPLETED_RESPONSE = {
+    "choices": [{"message": {"role": "assistant", "content": '  {"human_summary": "ok"}  '}}],
 }
 
 
 class TestCompleteHappyPath:
-    def test_returns_text_from_completed_job(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[_FakeResponse(200, _COMPLETED_OUTPUT)],
-        )
+    def test_returns_text_from_response(self) -> None:
+        session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
         client = _client_with(session)
 
         result = client.complete(_prompt())
@@ -96,19 +78,11 @@ class TestCompleteHappyPath:
         assert result.text == '{"human_summary": "ok"}'
 
     def test_extracts_usage_tokens_when_present(self) -> None:
-        completed = {
-            "status": "COMPLETED",
-            "output": [
-                {
-                    "choices": [{"tokens": ["ok"]}],
-                    "usage": {"input": 100, "output": 20},
-                }
-            ],
+        payload = {
+            **_COMPLETED_RESPONSE,
+            "usage": {"prompt_tokens": 100, "completion_tokens": 20},
         }
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[_FakeResponse(200, completed)],
-        )
+        session = _FakeSession(response=_FakeResponse(200, payload))
         client = _client_with(session)
 
         result = client.complete(_prompt())
@@ -117,10 +91,7 @@ class TestCompleteHappyPath:
         assert result.token_output == 20
 
     def test_usage_tokens_none_when_absent(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[_FakeResponse(200, _COMPLETED_OUTPUT)],
-        )
+        session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
         client = _client_with(session)
 
         result = client.complete(_prompt())
@@ -128,36 +99,44 @@ class TestCompleteHappyPath:
         assert result.token_input is None
         assert result.token_output is None
 
-    def test_polls_through_in_queue_and_in_progress(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[
-                _FakeResponse(200, {"status": "IN_QUEUE"}),
-                _FakeResponse(200, {"status": "IN_PROGRESS"}),
-                _FakeResponse(200, _COMPLETED_OUTPUT),
-            ],
-        )
-        client = _client_with(session)
-
-        result = client.complete(_prompt())
-
-        assert result.text == '{"human_summary": "ok"}'
-        assert len(session.get_calls) == 3
-
     def test_model_name_and_version_exposed_as_attributes(self) -> None:
         session = _FakeSession()
-        client = _client_with(session, model_name="Qwen2.5-7B-Instruct", model_version="2.5")
+        client = _client_with(
+            session, model_name="Qwen/Qwen2.5-7B-Instruct", model_version="2.5"
+        )
 
-        assert client.model_name == "Qwen2.5-7B-Instruct"
+        assert client.model_name == "Qwen/Qwen2.5-7B-Instruct"
         assert client.model_version == "2.5"
 
+    def test_calls_openai_compatible_chat_completions_url(self) -> None:
+        session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
+        client = _client_with(session)
 
-class TestSubmissionPayload:
-    def test_includes_guided_json_schema_and_sampling_params(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[_FakeResponse(200, _COMPLETED_OUTPUT)],
+        client.complete(_prompt())
+
+        assert session.last_call is not None
+        assert session.last_call["url"] == (
+            "https://api.runpod.ai/v2/ep-123/openai/v1/chat/completions"
         )
+
+
+class TestRequestPayload:
+    def test_sends_system_and_user_messages_with_correct_roles(self) -> None:
+        session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
+        client = _client_with(session)
+        prompt = _prompt()
+
+        client.complete(prompt)
+
+        assert session.last_call is not None
+        body = session.last_call["json"]
+        assert body["messages"] == [
+            {"role": "system", "content": prompt.system_message},
+            {"role": "user", "content": prompt.user_message},
+        ]
+
+    def test_includes_guided_json_schema_and_sampling_params(self) -> None:
+        session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
         client = _client_with(
             session, temperature=0.1, top_p=0.9, repetition_penalty=1.2, max_output_tokens=512
         )
@@ -165,104 +144,76 @@ class TestSubmissionPayload:
 
         client.complete(prompt)
 
-        sent = session.post_calls[0]["json"]
-        params = sent["input"]["sampling_params"]
-        assert sent["input"]["prompt"] == prompt.text
-        assert params["max_tokens"] == 512
-        assert params["temperature"] == 0.1
-        assert params["top_p"] == 0.9
-        assert params["repetition_penalty"] == 1.2
-        assert params["guided_decoding"] == {"json": prompt.json_schema}
+        assert session.last_call is not None
+        body = session.last_call["json"]
+        assert body["model"] == "Qwen/Qwen2.5-7B-Instruct"
+        assert body["max_tokens"] == 512
+        assert body["temperature"] == 0.1
+        assert body["top_p"] == 0.9
+        assert body["repetition_penalty"] == 1.2
+        assert body["guided_json"] == prompt.json_schema
 
     def test_sends_bearer_auth_header(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[_FakeResponse(200, _COMPLETED_OUTPUT)],
-        )
+        session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
         client = _client_with(session, api_key="my-secret-key")
 
         client.complete(_prompt())
 
-        assert session.post_calls[0]["headers"]["Authorization"] == "Bearer my-secret-key"
+        assert session.last_call is not None
+        assert session.last_call["headers"]["Authorization"] == "Bearer my-secret-key"
+
+    def test_uses_configured_request_timeout(self) -> None:
+        session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
+        client = _client_with(session, request_timeout_seconds=45)
+
+        client.complete(_prompt())
+
+        assert session.last_call is not None
+        assert session.last_call["timeout"] == 45
 
 
 class TestErrorHandling:
-    def test_missing_job_id_raises_llm_transient(self) -> None:
-        session = _FakeSession(post_responses=[_FakeResponse(200, {"unexpected": "shape"})])
+    def test_connection_error_raises_llm_transient(self) -> None:
+        session = _FakeSession(raise_exc=requests.exceptions.ConnectionError("refused"))
         client = _client_with(session)
 
         with pytest.raises(LlmTransient):
             client.complete(_prompt())
 
-    def test_connection_error_on_submit_raises_llm_transient(self) -> None:
-        session = _FakeSession(post_exc=requests.exceptions.ConnectionError("refused"))
+    def test_timeout_raises_llm_transient(self) -> None:
+        session = _FakeSession(raise_exc=requests.exceptions.Timeout("slow"))
         client = _client_with(session)
 
         with pytest.raises(LlmTransient):
             client.complete(_prompt())
 
-    def test_timeout_on_submit_raises_llm_transient(self) -> None:
-        session = _FakeSession(post_exc=requests.exceptions.Timeout("slow"))
+    def test_5xx_raises_llm_transient(self) -> None:
+        session = _FakeSession(response=_FakeResponse(503, {}, text="unavailable"))
         client = _client_with(session)
 
         with pytest.raises(LlmTransient):
             client.complete(_prompt())
 
-    def test_5xx_on_submit_raises_llm_transient(self) -> None:
-        session = _FakeSession(post_responses=[_FakeResponse(503, {}, text="unavailable")])
-        client = _client_with(session)
-
-        with pytest.raises(LlmTransient):
-            client.complete(_prompt())
-
-    def test_4xx_on_submit_propagates_unwrapped(self) -> None:
-        # A 401/400 from RunPod is a config/auth bug, not a transient
-        # condition -- it must NOT be silently retried via SQS.
-        session = _FakeSession(post_responses=[_FakeResponse(401, {}, text="unauthorized")])
+    def test_4xx_propagates_unwrapped(self) -> None:
+        # A 401/400/404 (bad key, bad endpoint, model-name mismatch) is
+        # a config bug, not a transient condition -- it must NOT be
+        # silently retried forever via SQS redelivery.
+        session = _FakeSession(response=_FakeResponse(401, {}, text="unauthorized"))
         client = _client_with(session)
 
         with pytest.raises(requests.exceptions.HTTPError):
             client.complete(_prompt())
 
-    def test_failed_job_status_raises_llm_transient(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[_FakeResponse(200, {"status": "FAILED", "error": "OOM"})],
-        )
+    def test_empty_choices_raises_llm_transient(self) -> None:
+        session = _FakeSession(response=_FakeResponse(200, {"choices": []}))
         client = _client_with(session)
 
         with pytest.raises(LlmTransient):
             client.complete(_prompt())
 
-    def test_empty_output_raises_llm_transient(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[_FakeResponse(200, {"status": "COMPLETED", "output": []})],
-        )
+    def test_malformed_response_shape_raises_llm_transient(self) -> None:
+        session = _FakeSession(response=_FakeResponse(200, {"unexpected": "shape"}))
         client = _client_with(session)
-
-        with pytest.raises(LlmTransient):
-            client.complete(_prompt())
-
-    def test_malformed_output_shape_raises_llm_transient(self) -> None:
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=[
-                _FakeResponse(200, {"status": "COMPLETED", "output": [{"unexpected": "shape"}]})
-            ],
-        )
-        client = _client_with(session)
-
-        with pytest.raises(LlmTransient):
-            client.complete(_prompt())
-
-    def test_poll_exhaustion_raises_llm_transient(self) -> None:
-        get_responses = [_FakeResponse(200, {"status": "IN_PROGRESS"}) for _ in range(3)]
-        session = _FakeSession(
-            post_responses=[_FakeResponse(200, {"id": "job-1"})],
-            get_responses=get_responses,
-        )
-        client = _client_with(session, poll_max_attempts=3)
 
         with pytest.raises(LlmTransient):
             client.complete(_prompt())

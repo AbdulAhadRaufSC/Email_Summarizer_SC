@@ -23,28 +23,32 @@ def _conversation(
 
 
 class TestBuildHappyPath:
-    def test_includes_subject_and_conversation(self) -> None:
+    def test_user_message_includes_subject_and_conversation(self) -> None:
         builder = TemplatePromptBuilder()
         prompt = builder.build(_conversation(), [], context_budget=16384)
 
-        assert "Cannot log in" in prompt.text
-        assert "email 0" in prompt.text
-        assert "email 1" in prompt.text
+        assert "Cannot log in" in prompt.user_message
+        assert "email 0" in prompt.user_message
+        assert "email 1" in prompt.user_message
 
-    def test_uses_qwen_chat_template_markers(self) -> None:
+    def test_system_and_user_messages_have_no_chat_template_markers(self) -> None:
+        # The RunPod OpenAI-compatible route applies the chat template
+        # server-side -- these must be plain message content, not
+        # pre-templated <|im_start|>-style strings.
         builder = TemplatePromptBuilder()
         prompt = builder.build(_conversation(), [], context_budget=16384)
 
-        assert prompt.text.startswith("<|im_start|>system\n")
-        assert "<|im_start|>user\n" in prompt.text
-        assert prompt.text.rstrip().endswith("<|im_start|>assistant")
+        assert "<|im_start|>" not in prompt.system_message
+        assert "<|im_start|>" not in prompt.user_message
+        assert "<|im_end|>" not in prompt.system_message
+        assert "<|im_end|>" not in prompt.user_message
 
-    def test_embeds_json_schema_matching_llm_summary_output(self) -> None:
+    def test_embeds_json_schema_matching_llm_summary_output_in_system_message(self) -> None:
         builder = TemplatePromptBuilder()
         prompt = builder.build(_conversation(), [], context_budget=16384)
 
         assert prompt.json_schema == LlmSummaryOutput.model_json_schema()
-        assert "human_summary" in prompt.text
+        assert "human_summary" in prompt.system_message
 
     def test_prompt_version_property_and_field_match(self) -> None:
         builder = TemplatePromptBuilder(prompt_version="v2-test")
@@ -62,7 +66,7 @@ class TestBuildHappyPath:
 
 
 class TestAttachmentFormatting:
-    def test_extracted_attachment_text_is_included(self) -> None:
+    def test_extracted_attachment_text_is_included_in_user_message(self) -> None:
         attachments = [
             ExtractedAttachment(
                 filename="log.txt",
@@ -75,8 +79,8 @@ class TestAttachmentFormatting:
         builder = TemplatePromptBuilder()
         prompt = builder.build(_conversation(), attachments, context_budget=16384)
 
-        assert "ERROR: disk full" in prompt.text
-        assert "log.txt" in prompt.text
+        assert "ERROR: disk full" in prompt.user_message
+        assert "log.txt" in prompt.user_message
 
     def test_metadata_only_attachment_shows_status_not_text(self) -> None:
         attachments = [
@@ -90,14 +94,14 @@ class TestAttachmentFormatting:
         builder = TemplatePromptBuilder()
         prompt = builder.build(_conversation(), attachments, context_budget=16384)
 
-        assert "photo.png" in prompt.text
-        assert "metadata_only" in prompt.text
+        assert "photo.png" in prompt.user_message
+        assert "metadata_only" in prompt.user_message
 
     def test_no_attachments_omits_attachments_section(self) -> None:
         builder = TemplatePromptBuilder()
         prompt = builder.build(_conversation(), [], context_budget=16384)
 
-        assert "## Attachments" not in prompt.text
+        assert "## Attachments" not in prompt.user_message
 
 
 class TestTruncation:
@@ -116,14 +120,12 @@ class TestTruncation:
             )
         ]
         builder = TemplatePromptBuilder()
-        # budget large enough for conversation + overhead, too small for
-        # conversation + full attachment text.
         prompt = builder.build(conversation, attachments, context_budget=2048 + 1700)
 
-        assert "attachment filler text" not in prompt.text
-        assert "huge.txt" in prompt.text  # metadata retained
-        assert "email 0" in prompt.text  # conversation preserved
-        assert "email 1" in prompt.text
+        assert "attachment filler text" not in prompt.user_message
+        assert "huge.txt" in prompt.user_message  # metadata retained
+        assert "email 0" in prompt.user_message  # conversation preserved
+        assert "email 1" in prompt.user_message
 
     def test_drops_oldest_emails_when_still_over_budget(self) -> None:
         # Enough emails that even after dropping attachments, the
@@ -132,12 +134,12 @@ class TestTruncation:
         conversation = _conversation(n_emails=10, body=long_body)
 
         builder = TemplatePromptBuilder()
-        prompt = builder.build(conversation, [], context_budget=2048 + 600)
+        prompt = builder.build(conversation, [], context_budget=2048 + 3000)
 
-        assert "omitted due to length" in prompt.text
+        assert "omitted due to length" in prompt.user_message
         # The newest email should survive; earliest ones should be gone.
-        assert "email 9" in prompt.text
-        assert "email 0" not in prompt.text
+        assert "email 9" in prompt.user_message
+        assert "email 0" not in prompt.user_message
 
     def test_truncated_prompt_still_within_budget_or_minimal(self) -> None:
         long_body = "conversation filler text. " * 200
@@ -150,4 +152,4 @@ class TestTruncation:
         # Either it fits, or we're down to a single (still oversized) email
         # and can't trim further -- both are acceptable, never silently
         # dropping the newest/triggering email.
-        assert prompt.estimated_tokens <= (budget - 2048) or "email 9" in prompt.text
+        assert prompt.estimated_tokens <= (budget - 2048) or "email 9" in prompt.user_message

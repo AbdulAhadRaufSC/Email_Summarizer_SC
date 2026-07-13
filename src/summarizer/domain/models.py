@@ -126,12 +126,21 @@ class NormalizedConversation:
 class Prompt:
     """Assembled, token-budgeted prompt ready for the LLM.
 
-    ``json_schema`` is both embedded in the prompt text (so the model
-    sees the target format) and passed separately to vLLM for
-    guided/constrained JSON decoding.
+    ``system_message`` / ``user_message`` rather than one pre-templated
+    string: the RunPod endpoint is worker-vllm's OpenAI-compatible
+    ``/openai/v1/chat/completions`` route, which applies the model's own
+    chat template server-side from a ``messages`` list. Pre-baking
+    ``<|im_start|>``-style markers into a flat string would either
+    double-template or have the model see literal control-token text
+    instead of real special tokens.
+
+    ``json_schema`` is both embedded in ``system_message`` (so the model
+    sees the target format) and passed separately for vLLM's
+    ``guided_json`` constrained decoding.
     """
 
-    text: str
+    system_message: str
+    user_message: str
     json_schema: dict[str, Any]
     prompt_version: str
     estimated_tokens: int

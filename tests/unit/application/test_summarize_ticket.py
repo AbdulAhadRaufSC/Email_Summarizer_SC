@@ -140,7 +140,13 @@ class FakePromptBuilder:
         *,
         context_budget: int,
     ) -> Prompt:
-        return Prompt(text="prompt text", json_schema={}, prompt_version="v1", estimated_tokens=100)
+        return Prompt(
+            system_message="system prompt",
+            user_message="user prompt",
+            json_schema={},
+            prompt_version="v1",
+            estimated_tokens=100,
+        )
 
 
 @dataclass

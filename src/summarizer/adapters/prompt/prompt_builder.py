@@ -1,12 +1,14 @@
 """Versioned, token-budgeted prompt builder.
 
-Assembles a system + user prompt for Qwen2.5-7B-Instruct, enforces the
-context window (default 16384 tokens), and embeds the JSON schema for
-guided decoding.
+Assembles a system message and a user message for the RunPod
+worker-vllm OpenAI-compatible chat-completions route, which applies
+Qwen2.5-7B-Instruct's own chat template server-side from a
+``messages`` list -- this builder does not hand-template chat control
+tokens itself (see ``domain/models.py::Prompt`` for why).
 
 Truncation order when the prompt exceeds the budget:
-1. Attachment text (oldest attachments first)
-2. Oldest conversation history
+1. Attachment text (all attachments' text dropped together)
+2. Oldest conversation history, one email at a time
 """
 
 from __future__ import annotations
@@ -26,7 +28,9 @@ from summarizer.domain.schema.v1 import ExtractionStatus, LlmSummaryOutput
 
 logger = logging.getLogger(__name__)
 
-# The Qwen2.5 tokenizer is closest to cl100k_base for budget estimation.
+# Token counts here are an estimate for budgeting purposes only -- the
+# real tokenization happens server-side via the model's own chat
+# template and tokenizer. cl100k_base is close enough for that purpose.
 _ENCODING = tiktoken.get_encoding("cl100k_base")
 
 _SYSTEM_TEMPLATE = (Path(__file__).parent / "templates" / "v1" / "system.txt").read_text(
@@ -39,12 +43,10 @@ def _count_tokens(text: str) -> int:
 
 
 class TemplatePromptBuilder:
-    """Builds a versioned, token-budgeted prompt.
+    """Builds a versioned, token-budgeted system/user message pair.
 
-    The prompt is a single string formatted for Qwen2.5-Instruct's
-    chat template (``<|im_start|>system...`` / ``<|im_start|>user...``).
     The JSON schema is embedded in the system message and also returned
-    on the ``Prompt`` for guided decoding.
+    on the ``Prompt`` for the client to pass as ``guided_json``.
     """
 
     def __init__(self, prompt_version: str = "v1") -> None:
@@ -63,42 +65,20 @@ class TemplatePromptBuilder:
         context_budget: int,
     ) -> Prompt:
         schema_str = json.dumps(self._json_schema, indent=2)
-
         system_msg = _SYSTEM_TEMPLATE.replace("{{JSON_SCHEMA}}", schema_str)
+        system_tokens = _count_tokens(system_msg)
 
-        # Build conversation section.
-        conv_lines = self._format_conversation(conversation)
-
-        # Build attachment section.
-        att_lines = self._format_attachments(attachments)
-
-        # Assemble the user message.
-        user_parts = [
-            f"## Ticket Subject\n{conversation.subject}",
-            f"## Email Conversation ({len(conversation.emails)} emails)\n{conv_lines}",
-        ]
-        if att_lines:
-            user_parts.append(f"## Attachments\n{att_lines}")
-
-        user_msg = "\n\n".join(user_parts)
-
-        # Apply Qwen2.5-Instruct chat template.
-        full_prompt = (
-            f"<|im_start|>system\n{system_msg}<|im_end|>\n"
-            f"<|im_start|>user\n{user_msg}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
+        user_msg = self._assemble_user_message(
+            conversation, self._format_attachments(attachments)
         )
 
         # Reserve tokens for the model's output.
-        max_input_tokens = context_budget - 2048  # reserve for output
+        max_input_tokens = context_budget - 2048
 
-        # Truncate if over budget.
-        current_tokens = _count_tokens(full_prompt)
+        current_tokens = system_tokens + _count_tokens(user_msg)
         if current_tokens > max_input_tokens:
-            full_prompt = self._truncate(
-                system_msg, conversation, attachments, max_input_tokens,
-            )
-            current_tokens = _count_tokens(full_prompt)
+            user_msg = self._truncate(conversation, attachments, max_input_tokens - system_tokens)
+            current_tokens = system_tokens + _count_tokens(user_msg)
 
         logger.info(
             "Prompt built: ~%d tokens (budget: %d)",
@@ -106,57 +86,50 @@ class TemplatePromptBuilder:
         )
 
         return Prompt(
-            text=full_prompt,
+            system_message=system_msg,
+            user_message=user_msg,
             json_schema=self._json_schema,
             prompt_version=self._prompt_version,
             estimated_tokens=current_tokens,
         )
 
+    def _assemble_user_message(
+        self, conversation: NormalizedConversation, attachment_section: str
+    ) -> str:
+        parts = [
+            f"## Ticket Subject\n{conversation.subject}",
+            f"## Email Conversation ({len(conversation.emails)} emails)\n"
+            f"{self._format_conversation(conversation)}",
+        ]
+        if attachment_section:
+            parts.append(f"## Attachments\n{attachment_section}")
+        return "\n\n".join(parts)
+
     def _truncate(
         self,
-        system_msg: str,
         conversation: NormalizedConversation,
         attachments: list[ExtractedAttachment],
-        max_input_tokens: int,
+        max_user_tokens: int,
     ) -> str:
-        """Progressively truncate to fit the budget.
+        """Progressively truncate the user message to fit the budget.
 
         Order: drop attachment text first, then oldest emails.
         """
         logger.warning("Prompt exceeds budget, truncating")
 
-        # Step 1: Drop all attachment text.
-        user_parts = [
-            f"## Ticket Subject\n{conversation.subject}",
-            f"## Email Conversation ({len(conversation.emails)} emails)\n"
-            f"{self._format_conversation(conversation)}",
-        ]
-        # Only include attachment metadata, no text.
-        att_metadata = "\n".join(
-            f"- {a.filename} ({a.mime_type}, {a.size} bytes) [text omitted due to length]"
-            for a in attachments
-        )
-        if att_metadata:
-            user_parts.append(f"## Attachments (metadata only)\n{att_metadata}")
+        att_metadata = self._format_attachment_metadata_only(attachments)
 
-        user_msg = "\n\n".join(user_parts)
-        full = (
-            f"<|im_start|>system\n{system_msg}<|im_end|>\n"
-            f"<|im_start|>user\n{user_msg}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
-        )
+        # Step 1: drop all attachment text, keep metadata only.
+        user_msg = self._assemble_user_message(conversation, att_metadata)
+        if _count_tokens(user_msg) <= max_user_tokens:
+            return user_msg
 
-        if _count_tokens(full) <= max_input_tokens:
-            return full
-
-        # Step 2: Drop oldest emails one at a time.
+        # Step 2: drop oldest emails one at a time.
         emails = list(conversation.emails)
-        while len(emails) > 1 and _count_tokens(full) > max_input_tokens:
+        while len(emails) > 1 and _count_tokens(user_msg) > max_user_tokens:
             emails.pop(0)  # drop oldest
-            trimmed = NormalizedConversation(
-                subject=conversation.subject, emails=emails,
-            )
-            user_parts_trimmed = [
+            trimmed = NormalizedConversation(subject=conversation.subject, emails=emails)
+            parts = [
                 f"## Ticket Subject\n{conversation.subject}",
                 f"[Note: {len(conversation.emails) - len(emails)} oldest emails "
                 f"omitted due to length]\n"
@@ -164,16 +137,10 @@ class TemplatePromptBuilder:
                 f"{self._format_conversation(trimmed)}",
             ]
             if att_metadata:
-                user_parts_trimmed.append(f"## Attachments (metadata only)\n{att_metadata}")
+                parts.append(f"## Attachments (metadata only)\n{att_metadata}")
+            user_msg = "\n\n".join(parts)
 
-            user_msg = "\n\n".join(user_parts_trimmed)
-            full = (
-                f"<|im_start|>system\n{system_msg}<|im_end|>\n"
-                f"<|im_start|>user\n{user_msg}<|im_end|>\n"
-                f"<|im_start|>assistant\n"
-            )
-
-        return full
+        return user_msg
 
     @staticmethod
     def _format_conversation(conversation: NormalizedConversation) -> str:
@@ -208,3 +175,10 @@ class TemplatePromptBuilder:
                     f"[{status}]"
                 )
         return "\n\n".join(parts)
+
+    @staticmethod
+    def _format_attachment_metadata_only(attachments: list[ExtractedAttachment]) -> str:
+        return "\n".join(
+            f"- {a.filename} ({a.mime_type}, {a.size} bytes) [text omitted due to length]"
+            for a in attachments
+        )

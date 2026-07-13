@@ -50,16 +50,19 @@ class ExtractionSettings(BaseSettings):
 class LlmSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LLM_")
 
-    model_name: str = "Qwen2.5-7B-Instruct"
+    # Must match the model id worker-vllm was launched with -- the
+    # OpenAI-compatible route validates the request's "model" field
+    # against it.
+    model_name: str = "Qwen/Qwen2.5-7B-Instruct"
     model_version: str = "2.5"
     max_context_tokens: int = 16384
     max_output_tokens: int = 2048
     temperature: float = 0.0
     top_p: float = 1.0
     repetition_penalty: float = 1.05
-    poll_interval_seconds: float = 1.0
-    poll_max_attempts: int = 180
-    request_timeout_seconds: int = 120
+    # Generous: RunPod's OpenAI-compatible route blocks synchronously
+    # until the job completes, including any cold-start time.
+    request_timeout_seconds: int = 300
 
 
 class PipelineSettings(BaseSettings):

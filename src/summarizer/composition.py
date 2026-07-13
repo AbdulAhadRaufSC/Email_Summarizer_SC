@@ -67,8 +67,6 @@ def build_use_case(settings: Settings) -> SummarizeTicket:
             temperature=settings.llm.temperature,
             top_p=settings.llm.top_p,
             repetition_penalty=settings.llm.repetition_penalty,
-            poll_interval_seconds=settings.llm.poll_interval_seconds,
-            poll_max_attempts=settings.llm.poll_max_attempts,
             request_timeout_seconds=settings.llm.request_timeout_seconds,
         ),
         validator=PydanticValidator(),
