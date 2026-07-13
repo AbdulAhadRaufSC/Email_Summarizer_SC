@@ -1,0 +1,1180 @@
+-- TrackEaseV2DB.Email_Metadata definition
+
+CREATE TABLE `Email_Metadata` (
+  `emailMetaId` int NOT NULL AUTO_INCREMENT,
+  `subject` varchar(300) DEFAULT NULL,
+  `inReplyTo` varchar(200) DEFAULT NULL,
+  `messageId` varchar(200) DEFAULT NULL,
+  `parentMessageId` varchar(200) DEFAULT NULL,
+  `seqno` int DEFAULT NULL,
+  `ticketId` int DEFAULT NULL,
+  `threadId` varchar(255) DEFAULT NULL,
+  `isNote` tinyint(1) DEFAULT '0',
+  `isDraft` tinyint(1) DEFAULT '0',
+  `mailContentAsText` varchar(300) DEFAULT NULL,
+  `createdBy` int DEFAULT NULL,
+  `createdOn` datetime DEFAULT CURRENT_TIMESTAMP,
+  `senderId` int NOT NULL,
+  `isDeleted` tinyint(1) DEFAULT '0',
+  `gId` text,
+  `reference` text,
+  `threadTopic` varchar(255) DEFAULT NULL,
+  `threadIndex` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`emailMetaId`),
+  KEY `Email_Metadata_FK` (`createdBy`),
+  KEY `idx_em_ticket_draft_deleted_meta` (`ticketId`,`isDraft`,`isDeleted`)
+) ENGINE=InnoDB AUTO_INCREMENT=134036 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- TrackEaseV2DB.Ticket definition
+
+CREATE TABLE `Ticket` (
+  `ticketId` int NOT NULL AUTO_INCREMENT,
+  `threadId` varchar(255) DEFAULT NULL,
+  `companyId` varchar(50) DEFAULT NULL,
+  `subject` varchar(500) DEFAULT NULL,
+  `source` varchar(50) DEFAULT NULL,
+  `byMessageId` varchar(100) DEFAULT NULL,
+  `createdOn` datetime DEFAULT CURRENT_TIMESTAMP,
+  `lastModifiedOn` datetime DEFAULT NULL,
+  `groupId` int DEFAULT NULL,
+  `agentId` int DEFAULT NULL,
+  `coAgentId` int DEFAULT NULL,
+  `effortHrs` float DEFAULT NULL,
+  `revisedEffortHrs` int DEFAULT NULL,
+  `isApprovedEffortHrs` varchar(25) DEFAULT NULL,
+  `resolutionDueBy` datetime DEFAULT NULL,
+  `resolvedAt` datetime DEFAULT NULL,
+  `closedAt` datetime DEFAULT NULL,
+  `firstResponseDueBy` datetime DEFAULT NULL,
+  `firstResponseAt` datetime DEFAULT NULL,
+  `isMergedAs` varchar(15) DEFAULT NULL,
+  `isTemporary` tinyint(1) DEFAULT '0',
+  `categoryId` int DEFAULT NULL,
+  `crStatusId` int DEFAULT NULL,
+  `priorityId` int DEFAULT NULL,
+  `requestTypeId` int DEFAULT NULL,
+  `requestStatusId` int DEFAULT NULL,
+  `senderId` int DEFAULT NULL,
+  `isDeleted` tinyint(1) NOT NULL DEFAULT '0',
+  `responseSLAStatus` varchar(100) DEFAULT NULL,
+  `resolutionSLAStatus` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`ticketId`),
+  KEY `Ticket_FK` (`senderId`),
+  KEY `categoryId` (`categoryId`),
+  KEY `crStatusId` (`crStatusId`),
+  KEY `priorityId` (`priorityId`),
+  KEY `requestStatusId` (`requestStatusId`),
+  KEY `requestTypeId` (`requestTypeId`),
+  KEY `idx_ticket_reqstatus_responsesla` (`requestStatusId`,`responseSLAStatus`,`firstResponseDueBy`),
+  KEY `idx_ticket_reqstatus_resolutionsla` (`requestStatusId`,`resolutionSLAStatus`,`resolutionDueBy`),
+  CONSTRAINT `Ticket_categoryId_DropdownConfig_Table_ctId_fk` FOREIGN KEY (`categoryId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_crStatusId_DropdownConfig_Table_ctId_fk` FOREIGN KEY (`crStatusId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_FK` FOREIGN KEY (`senderId`) REFERENCES `Email_Details` (`edId`),
+  CONSTRAINT `Ticket_ibfk_1` FOREIGN KEY (`categoryId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_ibfk_2` FOREIGN KEY (`crStatusId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_ibfk_3` FOREIGN KEY (`priorityId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_ibfk_4` FOREIGN KEY (`requestTypeId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_ibfk_5` FOREIGN KEY (`requestStatusId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_priorityId_DropdownConfig_Table_ctId_fk` FOREIGN KEY (`priorityId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_requestStatusId_DropdownConfig_Table_ctId_fk` FOREIGN KEY (`requestStatusId`) REFERENCES `DropdownConfig_Table` (`ctId`),
+  CONSTRAINT `Ticket_requestTypeId_DropdownConfig_Table_ctId_fk` FOREIGN KEY (`requestTypeId`) REFERENCES `DropdownConfig_Table` (`ctId`)
+) ENGINE=InnoDB AUTO_INCREMENT=239905 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+
+-- TrackEaseV2DB.ticketAiSummary definition 
+( this is a draft table, it can be changed as needed )
+CREATE TABLE `ticketAiSummary` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `ticketId` bigint NOT NULL,
+  `emailMetaId` bigint NOT NULL,
+  `latestMessageId` varchar(255) NOT NULL,
+  `summary` longtext,
+  `modelName` varchar(100) DEFAULT NULL,
+  `modelVersion` varchar(50) DEFAULT NULL,
+  `promptVersion` varchar(50) DEFAULT NULL,
+  `summaryStatus` varchar(50) DEFAULT NULL,
+  `triggeredBy` varchar(250) DEFAULT NULL,
+  `processingTimeMs` int DEFAULT NULL,
+  `tokenInput` int DEFAULT NULL,
+  `tokenOutput` int DEFAULT NULL,
+  `retryCount` int DEFAULT '0',
+  `errorMessage` varchar(500) DEFAULT NULL,
+  `createdAt` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updatedAt` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idxTicketId` (`ticketId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+# Principal AI Architect & Senior Software Engineer - Project Kickoff
+
+## Your Role
+
+You are acting as my dedicated Principal AI Architect, Senior Python Engineer, AWS Solutions Architect, LLM Engineer, Prompt Engineer, MLOps Engineer, and Technical Lead.
+
+You are helping me build a **production-grade enterprise AI platform** from scratch.
+
+This is **not a coding exercise**.
+
+This is a real-world software engineering project.
+
+You should think like an architect working at Amazon, Microsoft, Google, OpenAI, or Atlassian.
+
+Your responsibility is to guide the project from requirements gathering to production deployment while constantly improving the design wherever possible.
+
+Whenever you believe a better design exists, explain it and justify why.
+
+Do not blindly agree with my ideas.
+
+Challenge poor architectural decisions.
+
+Recommend improvements.
+
+Always optimize for scalability, maintainability, security, observability, and future extensibility.
+
+---
+
+# Project Background
+
+We are developing an AI-powered Email Intelligence and Knowledge Management Platform for our enterprise ticketing system called **Stepping Desk**.
+
+The primary objective is to automatically understand long customer email conversations, summarize them, and later transform those summaries into an enterprise knowledge base that powers Retrieval-Augmented Generation (RAG), ticket classification, intelligent routing, and AI-assisted support.
+
+The summarization system is only Phase 1.
+
+The long-term vision is an AI-powered Service Desk.
+
+---
+
+# Existing System
+
+Current infrastructure consists of:
+
+* Stepping Desk
+* AWS
+* Amazon SQS
+* Python services
+* MySQL
+* RunPod
+* Qwen 2.5
+* Amazon S3
+
+Whenever a ticket is created or updated:
+
+Stepping Desk publishes an event into Amazon SQS.
+
+The SQS message currently contains:
+
+* ticketId
+* emailMetaId
+* messageId
+
+The Python worker consumes the message.
+
+---
+
+# Current Database
+
+The ticket metadata already exists.
+
+Ticket
+
+↓
+
+Email_Metadata
+
+↓
+
+ticketAiSummary
+
+A ticket contains multiple emails.
+
+Each email belongs to one ticket.
+
+Ticket history is immutable.
+
+Emails are never edited.
+
+Tickets normally contain between 1 and 20 emails.
+
+Current volume is below 100 tickets/day.
+
+Future volume should still be considered.
+
+---
+
+# Email Storage
+
+The actual email bodies are NOT stored inside MySQL.
+
+Instead:
+
+Amazon S3 stores:
+
+* Complete HTML
+* Plain text
+* Attachments
+
+An internal Email API retrieves emails using messageId.
+
+The API returns:
+
+* Subject
+* Sender
+* Recipients
+* HTML body
+* Plain text body
+* Message ID
+* Parent Message ID
+* Thread ID
+* Attachments
+* Base64 attachment contents
+
+Attachments may include:
+
+* PDF
+* DOCX
+* XLSX
+* CSV
+* TXT
+* Images
+* EML
+* Other enterprise document types
+
+The API acts as the single source of truth for email content.
+
+---
+
+# Current Objective (Phase 1)
+
+Build an AI summarization pipeline.
+
+Workflow:
+
+Stepping Desk
+
+↓
+
+SQS Event
+
+↓
+
+Python Worker
+
+↓
+
+Fetch Ticket Metadata
+
+↓
+
+Retrieve complete conversation
+
+↓
+
+Retrieve attachments
+
+↓
+
+Decode Base64
+
+↓
+
+Extract attachment text
+
+↓
+
+Clean conversation
+
+↓
+
+Construct prompt
+
+↓
+
+Send to Qwen 2.5 hosted on RunPod
+
+↓
+
+Receive structured response
+
+↓
+
+Validate response
+
+↓
+
+Store inside ticketAiSummary
+
+↓
+
+Expose summary to Stepping Desk
+
+The system does NOT require real-time performance.
+
+A delay of approximately one minute is acceptable.
+
+---
+
+# Future Roadmap
+
+The summaries produced today will later power:
+
+* Semantic Search
+* Vector Database
+* Retrieval-Augmented Generation (RAG)
+* Similar Ticket Search
+* Automatic Reply Suggestions
+* Email Classification
+* Module Prediction
+* Department Prediction
+* Priority Prediction
+* SLA Prediction
+* Auto Assignment
+* AI Support Assistant
+
+Eventually approximately 40,000 historical tickets will be processed.
+
+Every architectural decision should support this roadmap.
+
+---
+
+# My Design Philosophy
+
+I do NOT want a quick prototype.
+
+I want software that can eventually become production-ready.
+
+Every module should be designed with long-term maintainability in mind.
+
+---
+
+# Development Principles
+
+Always follow:
+
+* SOLID Principles
+* Clean Architecture
+* Event-driven Architecture
+* Separation of Concerns
+* Idempotent Processing
+* Modular Design
+* Configuration-driven Development
+* Dependency Injection where appropriate
+* Testability
+* Observability
+* Retry Handling
+* Dead Letter Queue Support
+* Versioning
+* Logging
+* Monitoring
+* Security First
+
+---
+
+# Security Requirements
+
+Always consider:
+
+* PII Detection
+* PII Masking
+* Secret Management
+* IAM
+* Authentication
+* Authorization
+* Encryption
+* Secure Logging
+* Audit Trails
+
+Never expose sensitive information unnecessarily.
+
+---
+
+# AI Requirements
+
+Do NOT simply summarize emails.
+
+Extract structured knowledge.
+
+The AI output should support both humans and future AI systems.
+
+Help design the best schema.
+
+Possible information includes:
+
+* Executive Summary
+* Customer Issue
+* Business Impact
+* Timeline
+* Resolution Attempts
+* Pending Actions
+* Current Status
+* Final Resolution
+* Module
+* Category
+* Priority
+* SLA
+* Assigned Team
+* Keywords
+* Attachment Summary
+* Human Summary
+
+Recommend improvements if better structures exist.
+
+---
+
+# Engineering Expectations
+
+You should first become my Solutions Architect.
+
+Before writing any code:
+
+* Fully understand the business.
+* Fully understand the infrastructure.
+* Fully understand the APIs.
+* Fully understand the database.
+* Fully understand future requirements.
+
+Do NOT assume anything.
+
+Interview me thoroughly.
+
+Challenge assumptions.
+
+Identify risks.
+
+Suggest improvements.
+
+---
+
+# Development Process
+
+Follow this exact workflow.
+
+## Phase 1
+
+Requirements Gathering
+
+Interview me until no major ambiguity remains.
+
+---
+
+## Phase 2
+
+Business Analysis
+
+Explain the business problem.
+
+Explain success criteria.
+
+Identify risks.
+
+---
+
+## Phase 3
+
+High-Level Design (HLD)
+
+Create:
+
+* Complete Architecture Diagram
+* Component Diagram
+* Sequence Diagrams
+* AWS Flow
+* Database Relationships
+* Data Flow
+* Error Flow
+* Retry Flow
+
+Review the HLD with me before continuing.
+
+---
+
+## Phase 4
+
+Low-Level Design (LLD)
+
+Design:
+
+* Folder Structure
+* Modules
+* Interfaces
+* Class Responsibilities
+* Configuration Strategy
+* Logging Strategy
+* Testing Strategy
+* Prompt Strategy
+
+Review before implementation.
+
+---
+
+## Phase 5
+
+Implementation
+
+Implement one module at a time.
+
+For every module:
+
+* Explain purpose.
+* Explain design.
+* Generate production-quality Python code.
+* Review the code.
+* Suggest improvements.
+* Wait for approval.
+
+Never generate the entire project in one response.
+
+---
+
+## Phase 6
+
+Testing
+
+Design:
+
+* Unit Tests
+* Integration Tests
+* End-to-End Tests
+* Failure Testing
+* Load Testing
+
+---
+
+## Phase 7
+
+Deployment
+
+Design:
+
+* Docker
+* Environment Variables
+* AWS Deployment
+* CI/CD
+* Monitoring
+* Logging
+* Alerting
+
+---
+
+# Coding Standards
+
+Every Python file must:
+
+* Follow PEP8
+* Include Type Hints
+* Include Logging
+* Include Docstrings
+* Be Modular
+* Be Testable
+* Have Proper Exception Handling
+* Avoid Code Duplication
+
+---
+
+# Collaboration Rules
+
+You are my technical lead.
+
+If my idea is weak, explain why.
+
+If a better design exists, recommend it.
+
+If additional information is needed, ask questions before making assumptions.
+
+When multiple approaches exist:
+
+* Compare them.
+* Discuss trade-offs.
+* Recommend the best one.
+
+Always explain WHY.
+
+---
+
+# First Task
+
+Do not write any code.
+
+Begin by interviewing me.
+
+Your goal is to completely understand the project before implementation.
+
+Ask every question needed regarding:
+
+* Business
+* Existing APIs
+* Database
+* AWS
+* SQS
+* RunPod
+* Email Retrieval
+* Attachments
+* Prompt Engineering
+* Security
+* AI
+* Future RAG
+* Deployment
+* Monitoring
+* Testing
+
+Once enough information has been collected:
+
+1. Summarize your understanding.
+2. Identify missing pieces.
+3. Identify risks.
+4. Suggest improvements.
+5. Produce a complete High-Level Design (HLD).
+6. Wait for my approval before moving to Low-Level Design and implementation.
+
+
+
+Architected comprehensive technical interview for enterprise email summarization system
+Architected comprehensive technical interview for enterprise email summarization system
+I've read the brief in full. Before any questions, here's the posture I'm bringing as your architect: I'll challenge weak decisions, and I'll right-size the design — which means I'll argue against complexity as often as for it. Two of the flags below are me telling you to cut scope, not add it.
+
+You said assume nothing, so let me reflect back my current understanding as hypotheses to correct, not facts:
+
+A ticket-created/updated event lands in SQS carrying ticketId, emailMetaId, messageId. A Python worker assembles the full conversation via the internal Email API, extracts attachment text, builds a prompt, calls self-hosted Qwen 2.5 on RunPod, validates a structured response, and writes it to ticketAiSummary.
+Email bodies/attachments live in S3; the Email API is the single source of truth. MySQL holds ticket metadata only.
+Latency is relaxed (~1 min acceptable). Volume is <100 tickets/day, 1–20 emails each, plus a ~40k-ticket historical backfill later. History is immutable.
+Phase 1 is summarization + structured knowledge extraction. Everything else (RAG, classification, routing) is future.
+Three things I'd flag now
+1. Don't build incremental summarization. Re-summarize the whole thread every time. At <100 tickets/day and ≤20 emails, the cost of re-running the full conversation is trivial, and it eliminates a whole class of state-reconciliation bugs. Incremental/delta summarization is a premature optimization I'd explicitly reject for Phase 1.
+
+2. Attachment extraction is your single biggest source of complexity and failure — and I suspect most of it isn't needed yet. Full text extraction across PDF/DOCX/XLSX/CSV/TXT/images/EML means office parsers, image OCR/vision, and recursive EML parsing, each with size limits, corrupt-file handling, and malware-scanning concerns on untrusted input. I'd challenge whether Phase 1 needs more than: extract text from the "easy, high-value" set (PDF, DOCX, TXT, CSV), and inventory-only (filename, type, size) for images/EML/unknowns until a downstream use case justifies more. This likely captures 90% of the value at a fraction of the risk.
+
+3. Mixing classification into the summarization call is premature. Module / Category / Priority / SLA / Team prediction are Phase 2+ concerns, and a generative model can't reliably classify into a taxonomy it hasn't been given. I'd separate "extract knowledge from the conversation" (feasible and valuable now) from "classify into business taxonomy" (needs a controlled vocabulary and arguably dedicated models later). Forcing enum guesses now produces low-trust fields that pollute the future knowledge base.
+
+One more nuance: because Qwen is self-hosted on your own RunPod infra, PII isn't leaving to a third-party vendor — so the PII story is more about secure logging, storage, and access control than about masking-before-inference. I don't want to dismiss PII; I want to right-size it to your actual threat model. That's a question below.
+
+The decisions that most shape the architecture
+If you answer only these, I can draft a solid first-cut HLD:
+
+Trigger semantics. Exactly when does the event fire — every inbound email, every ticket update, or only on close? And do you want debouncing if 5 emails arrive in a burst (summarize once vs. five times)?
+Qwen variant + context window. Which Qwen 2.5 size (7B/14B/32B/72B) and configured context length? This determines whether a worst-case thread + attachments fits in one call or needs map-reduce chunking.
+Structured-output enforcement. Does your RunPod serving stack (vLLM/TGI/Ollama/other) support JSON-schema–constrained decoding or grammar/function-calling — or are we parsing freeform text? This decides how hard reliable structured output will be.
+Attachment scope for Phase 1 (per flag #2 above): full extraction of all types, or the reduced set I proposed?
+Backfill model. Is the 40k historical run a one-time batch, or ongoing? A batch backfill and a real-time stream are arguably two pipelines sharing a core.
+Human-in-the-loop. Is the summary auto-published to Stepping Desk, or reviewed/approved by an agent first? This sets how strict validation must be.
+Compute platform for the worker. Lambda, ECS/Fargate, EKS, or EC2? Lambda's 15-min ceiling matters once LLM latency + attachment parsing stack up.
+Compliance regime. GDPR / HIPAA / SOC2 / none? Customer emails can contain anything, and this drives retention, residency, and audit requirements.
+Deeper questions by domain
+Answer what you can; I'll iterate in follow-up rounds until ambiguity is gone.
+
+Business & consumers
+
+Who reads the summary — support agents, managers, customers, or downstream AI? The primary audience should drive the schema.
+What's the KPI this is really serving (handle time, knowledge retention, onboarding, deflection)?
+How will you judge summary quality — human eval, downstream task performance, both?
+What's the cost of a hallucinated/wrong summary in your context?
+Event & queue
+
+Standard or FIFO SQS? Any ordering or dedup requirements today?
+Current visibility timeout, max-receive count, and is a DLQ already wired?
+What is the natural idempotency key — ticketId + latest messageId, a conversation hash, or something else?
+Email API & conversation assembly
+
+Given one messageId, does the API return the whole thread, or must the worker walk parentMessageId/threadId and fetch each email individually?
+API auth mechanism, rate limits, typical latency, and any SLA?
+Behavior on partial failure (some emails retrievable, some not) — proceed, retry, or fail the whole ticket?
+Attachments (if in scope)
+
+Max attachment size you'll accept? Base64 in the response could be very large.
+Any malware/AV scanning available or required before we parse untrusted files?
+Password-protected/encrypted attachments — expected, and how to handle?
+LLM / RunPod
+
+Is RunPod a persistent endpoint or serverless/on-demand (cold starts)? Throughput and max concurrency?
+Any fallback if RunPod is down (e.g., Bedrock), or is queued retry acceptable given relaxed latency?
+Cost model — per-GPU-hour or per-token?
+Output schema & classification
+
+For the knowledge fields (issue, impact, timeline, resolution attempts, pending actions, status, final resolution, keywords), which are strictly required vs. nullable?
+Do controlled vocabularies already exist for Module / Category / Team / Priority / SLA? If not, I'll recommend deferring those fields (flag #3).
+Are emails always English, or multilingual?
+Do downstream consumers need confidence scores per field?
+You mentioned versioning — do you want a schema_version on every summary so 40k backfilled records remain interpretable as the schema evolves? (I'd strongly recommend yes.)
+Data & storage
+
+Current ticketAiSummary schema — does one exist, or are we designing it? One row per ticket, updated in place, or versioned/appended?
+MySQL version (JSON column support)? I'll likely propose a JSON payload plus a few indexed scalar columns.
+Security / PII / audit
+
+Given self-hosting, is PII masking before inference actually required, or is the real requirement secure logging + access-controlled storage? (See nuance above.)
+Data retention period for summaries and logs?
+What specifically must land in the audit trail, and who may read summaries?
+Where do secrets live today (Secrets Manager, SSM, env)? What region is the RunPod GPU in?
+Reliability & ops
+
+How do your existing Python services deploy today — is there CI/CD I should conform to?
+Observability stack — CloudWatch, Datadog, OpenTelemetry? Who gets paged, and on what?
+Testing & data access
+
+Can I get a handful of anonymized real tickets (varied length, with/without attachments, at least one nasty edge case) to design and test against? Realistic fixtures will shape the schema and validation more than anything else here.
+Is there a staging environment with the Email API and a RunPod endpoint I can target?
+You don't need to answer all of this in one pass. Give me the 8 shaping decisions plus whatever else is easy, and I'll (1) restate a consolidated understanding, (2) list remaining gaps, (3) rank the risks, (4) give my recommended improvements, and (5) produce a first-draft HLD for your review before we touch LLD or code.
+
+Where would you like to start — top-down from the business KPI, or straight into the event/trigger semantics, since that decision cascades the furthest?
+
+Event & Queue Architecture
+
+Trigger Semantics: The SQS event fires whenever a new email is associated with a ticket (creation or reply), generating a ticket update containing the ticketId, emailMetaId, and messageId.
+
+Orchestrated comprehensive architecture blueprint spanning happy-path, error handling, schema design
+Orchestrated comprehensive architecture blueprint spanning happy-path, error handling, schema design
+Your answers lock most of the design — I'm treating the following as decided and I'll stop re-litigating them. Before I hand you a first-draft HLD, though, there are six risks in what you've described that I'd flag hard, two of which are latent correctness bugs in the design as stated. I'll cover understanding → gaps → risks → recommendations → HLD (with a diagram), then tell you the three decisions I actually need back.
+
+1. Consolidated understanding (locked)
+Trigger: one SQS event per new email (create or reply), carrying ticketId/emailMetaId/messageId. Full re-summarization of the thread on every event (no incremental/delta state).
+Queue: Standard SQS, DLQ on failure. Transient → retry; total retrieval failure → DLQ.
+Model: self-hosted Qwen 2.5 on RunPod, size TBD by eval. Single-shot inference, no chunking. Structured JSON via serving-layer constrained decoding and/or Python validation, retry on invalid. No secondary LLM; queued retries cover RunPod downtime.
+Attachments: text extraction for PDF/DOCX/TXT/CSV/XLSX; images/EML/unknown → metadata-only (name, MIME, size).
+Retrieval: enumerate ticket emails via Email_Metadata, then fan out to the Email API per messageId.
+Backfill: ~40k tickets enqueued via a one-time batch job reusing the same worker logic.
+Compute: ECS/Fargate or EC2 (Lambda ruled out). Worker is CPU/IO-bound; the GPU lives on RunPod.
+Storage: one continually-updated ticketAiSummary row per ticket, no history. Every summary carries schema_version + prompt_version.
+Output: only the human-readable summary is required in Phase 1; structured fields added later. No confidence scores.
+Product: audience = support engineers now, AI later; KPI = time-to-context reduction; auto-publish, no human gate; grounded/extractive prompting; human eval initially. No HIPAA/GDPR mandate; focus on access control + minimal logging; no pre-inference PII masking.
+2. Gaps still open (each affects a specific component)
+RunPod mode: persistent endpoint vs. serverless/scale-to-zero? This sets timeout/backoff/cold-start handling in the LLM client.
+Email API contract: auth, rate limits, p95 latency, and — critically — does it guarantee the triggering email is retrievable at event time? (See R5.)
+ticketAiSummary today: does the table already exist, or am I designing it? MySQL version (JSON column support)?
+Partial-failure product rule: all-or-nothing DLQ, or partial summary with a caveat? (See R6.)
+3. Risks I'd flag (ranked)
+R1 — Stale-summary race. [High / correctness] Standard SQS + concurrent workers + single mutable row + auto-publish is last-writer-wins with no ordering guarantee. If email e4's event is processed against a thread of 4 while e5's event (thread of 5) finishes first, the e4 worker overwrites with the older summary and nothing corrects it until e6 arrives — which may be never. The window is timing-dependent and rare at your volume, but it's a real hole and the fix is cheap: a compare-and-set write keyed on a monotonic marker (latest email timestamp or messageId) — UPDATE ... WHERE based_on_email_ts < :new_ts. Bonus: the same guard gives you backfill idempotency and resumability for free. (Alternative: SQS FIFO with MessageGroupId = ticketId — note this still parallelizes across tickets; FIFO enforces per-group order, not global order, so your stated reason for Standard doesn't actually rule it out. I'd take the CAS guard as primary because it protects at the DB boundary regardless of queue and covers the backfill-vs-realtime collision too.)
+
+R2 — Untrusted attachment parsing is an unguarded attack surface. [High / security+stability] Your "self-hosted, so data is safe" framing addresses exfiltration, but the real threat here is malicious files from customer email crashing or exploiting the worker. XLSX/DOCX are zip archives → zip-bomb risk; office XML → billion-laughs entity expansion; PDF/office parsers have a CVE history; a crafted file can OOM or hang the process. Mitigations: run extraction in a resource-limited, sandboxed subprocess/sidecar, enforce hard per-file size + wall-clock timeout, cap decompression ratio, disable external XML entity resolution, cap XLSX rows/cells, and isolate per-file failures to metadata-only fallback so one bad file never fails the ticket. This is the biggest thing missing from your security section.
+
+R3 — "It all fits in one call" is unvalidated. [Medium-High] Email threads re-quote the entire prior chain on every reply, so a 20-email thread is O(n²) text, and an XLSX with thousands of rows can dwarf the conversation. Mitigations: thread normalization / quote-stripping during cleaning (also a quality win — duplicated quoted text degrades LLM output), per-attachment token budgets with truncation, and a graceful-degradation order (drop attachment text first, then oldest quoted history) if the assembled prompt exceeds context. Final sizing depends on the chosen Qwen context length.
+
+R4 — Backfill will flood live traffic, the Email API, and RunPod. [Medium] 40k tickets ≈ ~400k Email API calls plus 40k GPU jobs, bursting into the same queue that serves live tickets. Reuse the worker code, not the live queue: a dedicated backfill queue + rate-limited producer + bounded consumer concurrency, run off-hours, respecting Email API limits. The CAS marker makes it resumable (skip tickets already current). I'll include rough throughput/cost sizing once the model and API limits are known.
+
+R5 — Read-your-writes on the triggering email. [Medium] The event fires because a new email arrived. If there's any propagation delay before that email is in Email_Metadata and retrievable via the API, the worker can summarize a thread missing the very email that triggered it — and persist it as current. Mitigation: verify the triggering messageId is present before summarizing; if absent, let visibility timeout retry rather than proceeding. Needs the API-consistency answer.
+
+R6 — All-or-nothing DLQ can silently bury tickets. [Medium / product] One permanently-unretrievable email sends the whole ticket to the DLQ after max-receives — no summary at all. Given the KB goal, a 19/20 summary with an explicit "1 email unavailable" caveat (status=PARTIAL) is usually more useful than nothing. I'd distinguish transient (retry→DLQ) from permanent per-email failures, and reserve DLQ for total retrieval failure. Either way, alarm on DLQ depth > 0 and write a redrive runbook. This is a decision for you.
+
+4. Design changes I'm recommending
+Beyond the mitigations above: a versioned JSON envelope now with a minimal body (just human_summary) so adding structured fields later is non-breaking; a pluggable clean/normalize stage so PII masking can slot in later without touching the pipeline; ECS/Fargate autoscaled on SQS queue depth for the worker (no GPU needed on it); idempotency key = ticketId + based_on marker, shared by real-time and backfill; and a short supervised pilot + tiny eval set before trusting full auto-publish, since a wrong summary actively costs the exact time your KPI is trying to save. Internally I'll structure the worker with clean ports/adapters (EmailGateway, AttachmentExtractor, ThreadNormalizer, PromptBuilder, LLMClient, Validator, SummaryRepository) so the core is unit-testable and RunPod/Email-API/MySQL are swappable — this sets up the LLD directly.
+
+5. First-draft HLD
+Components. Two producers (Stepping Desk real-time; a rate-limited backfill producer) → two Standard queues each with a DLQ → one ECS/Fargate worker service. Inside the worker: SQS handler (idempotency + ack/retry) → Conversation Assembler (MySQL read + bounded-concurrency Email API fan-out) → Attachment Extractor (sandboxed, guarded, metadata-only fallback) → Thread Normalizer/Cleaner (quote-strip + PII hook) → Prompt Builder (versioned, token-budgeted) → LLM Client (RunPod adapter, structured decoding, timeout/backoff) → Validator (pydantic, retry on invalid) → Summary Repository (compare-and-set write to ticketAiSummary). Cross-cutting: config (env/SSM), secrets (Secrets Manager), structured logging with no bodies/PII, metrics/traces (CloudWatch/OTel), DLQ alarms.
+
+
+
+Happy path. The handler pulls a message and immediately checks idempotency: if ticketAiSummary for that ticket is already based on a marker ≥ the triggering email, it acks and drops out. Otherwise it enumerates the ticket's emails from Email_Metadata, fans out to the Email API with bounded concurrency to pull bodies + attachments, and confirms the triggering messageId is present (retry if not — R5). Attachments run through the guarded extractor (metadata-only fallback on any failure), the thread gets normalized and quote-stripped, the prompt is assembled under a token budget, Qwen returns structured JSON, the validator enforces the schema (retry on invalid), and the repository does a compare-and-set write. Ack.
+
+Error / retry flow. Everything transient — Email API 5xx, RunPod cold start or timeout, MySQL blip — is left to fail so SQS redelivers after the visibility timeout, giving natural exponential-ish backoff via maxReceiveCount. Only total retrieval failure or a persistent poison message exhausts retries into the DLQ, which alarms on depth > 0 and has a redrive runbook. Per-attachment failures never reach this path — they degrade to metadata-only. Whether a single permanently-missing email should DLQ the ticket or produce a PARTIAL summary is the open R6 decision.
+
+ticketAiSummary (Phase 1 sketch). One row per ticket, upserted via CAS:
+
+ticket_id (PK/FK), human_summary (TEXT, the only required content field)
+payload (JSON) — versioned envelope, minimal now, room for structured fields later
+schema_version, prompt_version, model_id
+status (OK | PARTIAL | FAILED), source_email_count, error_detail (JSON, nullable)
+based_on_email_ts — the monotonic CAS marker (R1)
+generated_at, updated_at
+The CAS write is UPDATE ... WHERE based_on_email_ts IS NULL OR based_on_email_ts < :new_ts, with an upsert for the first insert. This single column closes R1 and gives R4's backfill its skip-if-current resumability.
+
+Internal layering (sets up the LLD). The worker is a thin application core wrapping ports whose adapters are the only things that know about infrastructure: EmailGateway (Email API), AttachmentExtractor, ThreadNormalizer, PromptBuilder, LLMClient (RunPod), Validator, SummaryRepository (MySQL). The core orchestrates ports and stays pure and unit-testable; RunPod, the Email API, and MySQL become swappable, and the PII-masking hook lives behind ThreadNormalizer so it can be added later without touching anything else. This is where your SOLID / DI / testability requirements get their teeth.
+
+Three decisions I need from you before I formalize this — each changes specific components:
+
+Partial-failure rule (R6): on one permanently unretrievable email, do we DLQ the whole ticket, or emit a PARTIAL summary with a caveat? This changes the Validator, the Repository, the status field, and the prompt.
+RunPod mode: persistent endpoint or serverless/scale-to-zero? This sets the timeout, backoff, and cold-start logic in LLMClient, and whether we need endpoint health monitoring.
+Email API contract: auth, rate limits, p95 latency, and whether the triggering email is guaranteed retrievable at event time (R5). This sizes EmailGateway concurrency and decides if the consistency check is mandatory.
+And a confirmation: are you adopting my two most material changes to your stated design — the CAS staleness guard (R1) and the dedicated backfill queue (R4)? If you'd rather stay strictly single-queue, I'll adjust, but I'd argue against it.
+
+If this HLD direction is approved, next I'll produce the formal Phase-3 artifact set (separate component, sequence, data-flow, error-flow, and retry-flow diagrams), then move to LLD — folder structure, the port interfaces above, config/logging/testing strategy — and I won't write implementation code until you approve the LLD. Which of the three decisions do you want to settle first?
+
+1. LLM & Inference Strategy
+
+* Model Specifications: The system uses Qwen2.5-7B-Instruct deployed on RunPod Serverless via vLLM, running on an RTX 4090 (24GB VRAM).
+* Context Window & Token Management: Most ticket conversations (<20 emails) will fit within a single inference request. To optimize tokens, the worker will normalize threads by stripping duplicated quoted replies, signatures, and disclaimers. If limits are approached, attachment text will be truncated before conversation history. Chunking or hierarchical summarization is unnecessary for Phase 1.
+* Availability & Fallback: Summarization is asynchronous and SQS-driven, making occasional cold starts acceptable. The LLM is treated strictly as an external dependency with configurable timeouts and retries. There is no secondary LLM provider; RunPod downtime will be handled via standard SQS retry mechanics since near-real-time processing is not required.
+2. System Resilience & Data Flow
+
+* Read Your Writes (Consistency): The Email API acts as the single source of truth. Before summarization, the worker must verify the triggering `messageId` is retrievable. If delayed due to eventual consistency, the system defers to SQS retries rather than generating an incomplete summary.
+* Partial Failure Handling: * OK: All emails and supported attachments retrieved.
+   * PARTIAL: One or more emails/attachments permanently fail. The summary will explicitly note the missing context to maximize business value while remaining transparent.
+   * FAIL/DLQ: If the core conversation or triggering email cannot be reconstructed, the worker exhausts SQS retries and moves the message to the Dead Letter Queue.
+* Dedicated Backfill Queue: Historical data will be processed through a dedicated backfill queue with configurable concurrency and rate limiting. This reuses the exact same worker logic without starving real-time production traffic.
+3. Data Integrity & Schema
+
+* Compare-and-Set (CAS) Guard: To prevent stale overwrites, the system will use the existing, monotonically increasing `emailMetaId` within `ticketAiSummary` as the CAS marker. Database updates will only succeed if the incoming `emailMetaId` is newer than the stored one. (This eliminates the need for an additional timestamp column).
+* Schema Alignment: The HLD should utilize the existing `ticketAiSummary` schema (`summary`, `modelName`, `modelVersion`, `promptVersion`, `summaryStatus`, `processingTimeMs`, `tokenInput`, `tokenOutput`, `retryCount`) rather than duplicating metadata structures.
+* Future Schema Evolution: The database design should anticipate a future iteration where a structured JSON representation is stored alongside the human-readable summary.
+4. Attachment Processing & Security
+
+* Supported Formats: Phase 1 extraction targets high-value text formats (PDF, DOCX, TXT, CSV, XLSX). Unsupported formats (images, EML, unknown MIME types) will be represented by metadata only.
+* Graceful Degradation: The extraction process will enforce strict limits on file size, execution time, and resource consumption. Individual attachment failures will seamlessly fall back to metadata-only processing and will never crash the overarching ticket summarization.
+5. HLD Feedback & Architectural Additions
+
+* General Alignment: The proposed HLD is fundamentally sound. The separation between orchestration, infrastructure adapters, prompt construction, structured validation, and persistence perfectly aligns with evolving this into a broader AI platform.
+* Strategic Addition (Embeddings): Because these summaries will eventually serve as foundational knowledge for RAG, the architecture must explicitly reserve a post-processing stage for embedding generation. This ensures that validated summaries can later be converted and indexed into a vector database without modifying the Phase 1 summarization pipeline
+
+Synthesized error handling and retry mechanisms comprehensively
+Synthesized error handling and retry mechanisms comprehensively
+Good — that resolves the open decisions cleanly, and a few of these are sharper than what I'd have proposed (using emailMetaId as the CAS marker instead of a new timestamp column is the right instinct — it's already in the SQS message, so the guard costs nothing). Qwen2.5-7B on a 4090 via vLLM serverless is a sensible Phase-1 choice: cheap enough for the 40k backfill, and vLLM's guided-JSON decoding is exactly how we enforce the schema. I'm aligned on the direction. But your decisions surfaced four things I need to correct or confirm before I freeze the formal artifacts, because two of them change the schema and one changes the embedding boundary.
+
+1. The CAS marker needs a column that isn't in your field list — and strict < will block three legitimate rewrites. Your stated ticketAiSummary fields (summary, modelName, modelVersion, promptVersion, summaryStatus, processingTimeMs, tokenInput, tokenOutput, retryCount) don't include emailMetaId. The CAS compares against a stored marker, so that column has to live on ticketAiSummary. Confirm it already exists (and that the table is one row per ticketId), or we add it.
+
+More importantly: a pure stored.emailMetaId < incoming.emailMetaId predicate correctly blocks concurrent stale writes, but it also blocks (a) DLQ redrive of the same email after a bug fix, (b) re-summarization of the same email set under a new promptVersion/modelVersion, and (c) the future bulk replay you'll need to re-embed 40k summaries. All three want to rewrite a row whose marker equals the stored one, and < forbids it. I'd make the predicate reprocess-aware: WHERE stored.emailMetaId < :incoming OR :reprocess = true, where reprocess is set only by the redrive tool and future re-summarization/re-embedding jobs — never by the live append path. That keeps the stale-write guarantee for real-time traffic while leaving a deliberate door open for controlled rewrites.
+
+2. Reserve an event boundary for embeddings, not an inline stage. I'd refine your embeddings point. If the embedding step is a stage inside the worker, you couple summarization latency and availability to the embedding model, and — worse — re-embedding later forces re-summarization. Instead, on a successful commit, write a SummaryUpserted event (ticketId + emailMetaId) in the same DB transaction as the summary (transactional outbox), and let a separate consumer generate and index embeddings. This gives you three things Phase 1 never has to know about: embeddings arrive without touching this pipeline, you can re-embed independently by replaying committed summaries from the DB, and the embedding backfill scales on its own. It's the same "controlled reprocess" capability from point 1, viewed from the RAG side — which is why they should be designed together.
+
+3. Two schema additions, both non-breaking, both shown in the ERD below. The emailMetaId CAS marker (point 1), and a nullable summaryJson column added now so the versioned envelope and the future structured representation have a home — that way the future iteration is a pure additive fill, not a migration run against a populated table under load.
+
+4. One genuinely open business question: does Stepping Desk support ticket merge/split? Your emailMetaId monotonicity assumption holds perfectly for the normal append flow. It breaks only if an older email (lower emailMetaId) can join a ticket after a summary was written with a higher marker — which is exactly what a ticket merge does. If merges exist, does the merge fire an event, and with which emailMetaId? If the answer is "merges happen and emit the merged frontier's id," we're fine; if not, CAS would silently refuse to re-summarize a merged ticket. I need this answer to know whether the marker logic needs a merge carve-out.
+
+Two smaller notes, no decision needed: confirm the vLLM --max-model-len you'll serve (that's the real token budget behind your R3 truncation order — Qwen2.5-7B can go to 32K, but the served value is what binds), and set the SQS visibility timeout above worst-case cold-start + inference + parsing so a slow message isn't redelivered mid-flight and burns a second GPU slot (CAS makes the duplicate safe, just wasteful). I'm reading the DB retryCount as app-internal retries (validation/LLM re-tries) for the successful run, distinct from the SQS receive count — flag me if you meant otherwise.
+
+Here's the corrected data model — the two additions vs. your field list are emailMetaId and summaryJson:
+
+
+
+The emailMetaId FK on ticketAiSummary is doing double duty: it's the foreign key to the frontier email and the CAS marker, so the guard is a single indexed comparison with no extra column beyond what the relationship already implies.
+
+Processing lifecycle (the state machine behind the status field). A message enters PROCESSING. The RYW gate tries to fetch the triggering messageId; if it's not yet retrievable, that's a transient throw and SQS redelivers — no partial summary is ever written for a not-yet-consistent read. From there the terminal states are: OK (all emails + supported attachments retrieved, CAS write, SummaryUpserted emitted); PARTIAL (the core thread and triggering email reconstructed, but some email or attachment permanently failed — summary is written with an explicit note and still emits the event, because a flagged summary is still useful to an engineer and to RAG); TRANSIENT_FAIL (Email API 5xx, RunPod cold-start timeout, MySQL blip → left to fail, redelivered with backoff via maxReceiveCount); and TERMINAL_FAIL (core thread or triggering email unreconstructable, or a poison message → retries exhausted → DLQ, alarm on depth > 0, redrive runbook). Per-attachment failures never reach any fail state — they degrade to metadata-only in place. The only path that writes a stale row is blocked by CAS.
+
+That's the HLD locked except for the four items above. I'm deliberately not rendering the remaining formal diagrams yet — the sequence, error/retry state, AWS-service, and component/port views all depend on the schema shape and the embedding event boundary, so producing them before you confirm points 1–4 would just mean redrawing them.
+
+So, to close Phase 3, I need from you:
+
+Confirm the reprocess-aware CAS predicate and whether emailMetaId already exists on ticketAiSummary (point 1).
+Confirm embeddings go behind a SummaryUpserted outbox event, not an inline stage (point 2).
+Confirm adding the nullable summaryJson column now (point 3).
+The ticket merge/split answer (point 4) — the one thing that could actually break the marker logic.
+Once those land, I'll produce the remaining formal HLD diagrams in one pass, and then we move to Phase 4 (LLD): the folder structure, the port interfaces (EmailGateway, AttachmentExtractor, ThreadNormalizer, PromptBuilder, LLMClient, Validator, SummaryRepository), and the config/logging/testing strategy — still no implementation code until you approve the LLD.
+
+Do you want to answer the four now, or should I draft the remaining diagrams against my recommended defaults for 1–3 and leave point 4 marked as a conditional branch, so you're reviewing something concrete rather than confirming in the abstract?
+
+1. Data Integrity & State Management
+
+* Reprocess-Aware CAS Predicate: We agree with using `emailMetaId` as both the latest processed reference and the compare-and-set (CAS) marker.
+   * Standard Flow: Normal real-time processing will enforce an append-only rule where updates only succeed if the incoming `emailMetaId` is newer than the stored value.
+   * Reprocess Mode: We will introduce an explicit "reprocess mode" for controlled operations (DLQ redrives, prompt improvements, model upgrades, historical backfills). This mode will intentionally bypass the normal append-only CAS rule to overwrite the summary while preserving the latest `emailMetaId`.
+* Structured Data Storage: A nullable `summaryJson` column will be introduced in Phase 1. Storing a versioned JSON representation alongside the human-readable summary avoids future schema migrations and provides a natural integration point for downstream AI systems.
+* Retry Metrics: The `retryCount` column in `ticketAiSummary` strictly represents application-level retries during a successful processing attempt (e.g., LLM validation retries). It is intentionally decoupled from the SQS receive count, which remains purely within the messaging infrastructure.
+2. Ticket Lifecycle (Merge/Split Behavior)
+
+* Splits: Ticket splitting is supported, but it generates a completely new ticket with an independent lifecycle. The new ticket begins summarization from scratch and does not inherit the previous summary.
+* Merges: We do not currently support merging multiple existing tickets into one. Therefore, the normal lifecycle remains strictly append-only, ensuring our CAS mechanism remains perfectly valid. (If ticket merging is introduced later, the marker strategy will be revisited).
+3. Event Boundaries & Decoupling
+
+* Embedding Boundary: We strongly agree with separating summarization from embedding generation. A `SummaryUpserted` event boundary ensures that summarization latency remains independent of embeddings, allows isolated embedding regeneration, and loosely couples downstream AI services.
+* Transactional Outbox Phasing: While a Transactional Outbox or `SummaryUpserted` event is an excellent enterprise pattern, we prefer a pragmatic approach for Phase 1. We will persist the summary and expose a clear extension point now, deferring the full implementation of an event-driven outbox mechanism until downstream capabilities (like embedding generation) become active requirements.
+4. Configuration & Resilience
+
+* vLLM Context Limits: The exact `max-model-len` on the vLLM deployment is still being confirmed. Consequently, the prompt builder will treat the context window as a configurable parameter, handling thread normalization and attachment token budgeting independently of hardcoded limits.
+* SQS Visibility Timeout: The visibility timeout will be configured to comfortably exceed the absolute worst-case processing duration (Email API retrieval + attachment parsing + RunPod cold start + LLM inference + validation retries + database persistence). This minimizes duplicate processing while ensuring SQS correctly handles genuine failures.
+
+Synthesized architectural decisions across data integrity, lifecycle management, and resilience patterns
+Synthesized architectural decisions across data integrity, lifecycle management, and resilience patterns
+All four resolved, and cleanly — splits spawning independent tickets sidesteps the marker problem entirely, and no-merge keeps the append-only invariant intact, so the CAS story is now airtight except for one last sharpening on reprocess mode. Deferring the full outbox is also the right pragmatic call, with one property worth making explicit so the deferral stays safe (below).
+
+The one sharpening: DLQ redrive should default to the standard append-only path, not reprocess mode. Reprocess mode force-overwrites and preserves the latest emailMetaId — correct for its real purpose (deliberate re-summarization of the current frontier under a new prompt/model, or quality backfill). But a DLQ redrive can carry a superseded emailMetaId: a message for email 140 lands in the DLQ, live traffic then advances the ticket to 150 with a good summary, and the redrive of 140 fires later. Run through standard CAS, 140 < 150 correctly skips it — the current summary already covers 140. Run through force-overwrite, it clobbers the fresh 150-summary with 140-based content, and "preserve latest emailMetaId" leaves the marker at 150 pointing at stale text — a silent, undetectable regression. So: redrive uses append-only by default (superseded redrives skip, fresh ones apply); force-overwrite is reserved strictly for deliberate same-frontier re-runs. And in every force path, set the marker to GREATEST(stored, incoming) so the frontier never moves backward. With that, the CAS invariant closes for good.
+
+Why deferring the outbox stays safe: the property that makes it fine to ship without events now is that the summaries themselves live in the DB with markers, so when embeddings become active you seed the vector store by replaying from the table — a straight query over committed summaries — not by relying on SummaryUpserted events you never emitted during Phase 1. The one thing I'd insist on for the "clear extension point" is that the seam sit at the SummaryRepository boundary (a save call a future decorator can wrap to also write an outbox row), not scattered publish calls in the orchestration core — that keeps turning on the outbox purely additive.
+
+Here are two of the remaining formal artifacts. On the other two: the component/port view is really the LLD structure, so I'm folding it into Phase 4 rather than drawing it twice; and a true UML sequence diagram is high-risk to hand-render cleanly and its content is already carried by the logical architecture diagram plus the state flow below — I'll produce a swimlane version only if you specifically want that lens.
+
+First, the AWS deployment topology — how this is deployed and operated, as opposed to the logical pipeline you've already seen:
+
+
+
+The autoscaling target is ApproximateNumberOfMessagesVisible on each queue, so live and backfill traffic scale the same service without either starving the other. Now the processing lifecycle as a decision flow — the deterministic branches are drawn; transient retries are the cross-cutting behavior noted at the bottom:
+
+
+
+That closes Phase 3. The HLD is now fully specified: event/queue semantics, the worker pipeline, RYW gate, reprocess-aware CAS on emailMetaId, PARTIAL/DLQ handling, the deferred-but-seamed embedding boundary, the corrected ticketAiSummary schema, the AWS deployment topology, and the processing/error/retry flow.
+
+For Phase 4 (LLD), here's what I'll produce for your review, still no implementation code:
+
+Folder structure — a clean-architecture layout separating the orchestration core, the ports, the infrastructure adapters, config, and tests.
+Port interfaces — the seams we've named: EmailGateway, AttachmentExtractor, ThreadNormalizer, PromptBuilder, LLMClient, Validator, SummaryRepository (with the decorator seam for the future outbox), plus the class responsibilities and how the SQS handler wires them via dependency injection.
+Configuration strategy — env/SSM-driven, with max-model-len, token budgets, size/time caps, timeouts, and retry limits all as config, per your R3 decision.
+Cross-cutting strategy — structured logging (no bodies/PII), the metrics that populate processingTimeMs/tokenInput/tokenOutput/retryCount, and the testing strategy (unit tests against the ports, integration tests against fakes, and the failure cases the state flow above defines).
+Prompt strategy — the versioned template contract, the grounding/extraction instructions that keep the 7B model factual, and how promptVersion is stamped onto each summary.
+One thing that would materially sharpen the prompt and validation design before I get there: can you share a handful of anonymized real tickets — ideally a short thread, a long 15–20 email thread, one with a couple of parseable attachments, and one nasty edge case (a permanently-missing email or a corrupt file)? Realistic fixtures will shape the schema and the failure handling more than anything else, and they become the seed of the eval set. If that's not available yet, I'll proceed against representative synthetic examples and we can swap in real ones later.
+
+Confirm the DLQ-redrive sharpening above and greenlight Phase 4, and I'll start with the folder structure and the port interfaces. Or if you'd rather I render the swimlane sequence diagram first, say so and I'll do that before the LLD.
+
+
+I agree with the DLQ redrive distinction. That's an important edge case that I hadn't fully considered.
+
+You're right that a DLQ message can become stale while newer emails continue to arrive on the same ticket. In that situation, treating every redrive as a forced reprocess would allow an older conversation snapshot to overwrite a newer summary, even if the emailMetaId marker itself remained unchanged. That would create an inconsistency between the stored summary and the stored frontier.
+
+Our intended behavior should therefore be:
+
+Normal event processing: append-only CAS (incoming emailMetaId > stored emailMetaId).
+DLQ redrive: follow the exact same append-only path as live processing. If the event has already been superseded by a newer summary, it should be skipped rather than overwrite the current state.
+Controlled reprocessing: reserved only for explicit administrative operations such as prompt improvements, model upgrades, historical quality improvements, or future bulk regeneration. Those operations intentionally regenerate the latest known frontier rather than replay historical events.
+
+I also agree that during controlled reprocessing the frontier should never move backwards. Using the equivalent of GREATEST(stored.emailMetaId, incoming.emailMetaId) (or simply retaining the existing frontier when reprocessing the current conversation) preserves that invariant.
+
+Regarding the deferred embedding architecture, I agree with your reasoning.
+
+For Phase 1, I would like to keep summarization focused on one responsibility: producing and persisting a validated summary.
+
+Rather than embedding generation being part of the summarization worker, I agree that the natural extension point should sit at the SummaryRepository boundary. That keeps the orchestration layer unaware of downstream AI consumers.
+
+When embeddings become part of the platform, we can either:
+
+introduce a transactional outbox and emit a SummaryUpserted event, or
+replay committed summaries directly from the database for the initial vector index build.
+
+Because summaries are persisted together with their frontier marker and metadata (emailMetaId, promptVersion, modelVersion, etc.), we are not dependent on historical events to bootstrap the vector database. That keeps the Phase 1 implementation simple while preserving a clean migration path.
+
+The AWS deployment topology and processing lifecycle both align with what I had in mind.
+
+Separating live traffic from historical backfill, keeping autoscaling queue-driven, and handling transient failures through SQS retries while reserving DLQ for terminal failures all fit well with our expected workload and operational requirements.
+
+I also agree with the distinction between:
+
+OK
+PARTIAL
+TRANSIENT_FAIL
+TERMINAL_FAIL
+
+and with treating individual attachment failures as degradations rather than pipeline failures.
+
+I'm happy to move into Phase 4 (LLD).
+
+The proposed deliverables are exactly what I was expecting:
+
+Clean Architecture folder structure
+Port and Adapter interfaces
+Class responsibilities
+Dependency Injection strategy
+Configuration management
+Logging and observability
+Testing strategy
+Prompt versioning strategy
+
+I especially like keeping the future outbox implementation behind the SummaryRepository seam rather than exposing event publishing throughout the orchestration layer. That gives us a clean evolution path without introducing unnecessary complexity in Phase 1.
+
+Regarding real ticket data, I don't currently have anonymized production samples that I can share externally. Initially, I'd prefer to proceed using representative synthetic examples that mimic our expected ticket patterns (short conversations, long conversations, supported attachments, and failure scenarios).
+
+Once the architecture and implementation are stable, we can validate the pipeline against anonymized production tickets internally and use those as the basis for prompt tuning and evaluation.
+
+One small request before we finalize the LLD:
+
+As part of the LLD, I'd also like to define a canonical Summary JSON schema that will be produced by the LLM and validated before persistence. Even if only the human-readable summary is surfaced in the UI during Phase 1, I'd like the structured representation to be designed now so that future capabilities such as embeddings, semantic search, classification, and RAG can consume it without requiring another redesign of the summarization pipeline.
+
+Other than that, I'm comfortable considering the HLD complete and moving into Phase 4.
+
+
+The user prompt is empty, so I cannot determine the primary language. However, based on the thinking block alone, here is my summary: Orchestrated architectural components across ports and dependencies
+The user prompt is empty, so I cannot determine the primary language. However, based on the thinking block alone, here is my summary: Orchestrated architectural components across ports and dependencies
+Everything's locked and consistent — append-only for both live and redrive, force-overwrite fenced off to administrative reprocessing with a non-regressing frontier, the outbox behind the repository seam, and the schema self-bootstrapping from the DB. Moving into Phase 4.
+
+I'll deliver the LLD in two reviewable chunks so neither is a wall: this chunk is the design contract — the canonical Summary schema (your keystone request), the folder structure, the ports and class responsibilities, and the DI strategy. The next chunk is operational strategy — configuration, logging/observability, testing, and the full prompt-versioning strategy. I'm leading with the schema because everything else references it.
+
+Canonical Summary schema
+The important design move: split the document by provenance. The LLM only produces what it can extract from the conversation; facts the LLM has no business asserting — which attachments parsed, what context is missing — are filled in by the orchestrator afterward. That keeps the grounding guarantee intact (a 7B model can't hallucinate an extraction status it never saw) and gives you two clean contracts: LlmSummaryOutput (the guided-decoding + validation target) and SummaryDocument (the enriched, persisted canonical form that lands in summaryJson).
+
+python
+# domain/schema/v1.py — Pydantic v2. This model is both the validation
+# contract AND the source of the vLLM guided-decoding JSON schema
+# (LlmSummaryOutput.model_json_schema()).
+from enum import Enum
+from pydantic import BaseModel, Field
+
+SCHEMA_VERSION = "1.0"
+
+class TicketStatus(str, Enum):
+    OPEN = "open"; AWAITING_CUSTOMER = "awaiting_customer"
+    AWAITING_SUPPORT = "awaiting_support"; RESOLVED = "resolved"
+    CLOSED = "closed"; UNKNOWN = "unknown"        # UNKNOWN = never forced to guess
+
+class Actor(str, Enum):
+    CUSTOMER = "customer"; SUPPORT = "support"
+    SYSTEM = "system"; UNKNOWN = "unknown"
+
+class TimelineEvent(BaseModel):
+    description: str
+    date: str | None = None                        # ISO date only if stated in-thread
+    actor: Actor = Actor.UNKNOWN
+
+class PendingAction(BaseModel):
+    description: str
+    owner: Actor = Actor.UNKNOWN
+
+class ClassificationHints(BaseModel):              # RESERVED — see note below
+    module: str | None = None
+    category: str | None = None
+    priority: str | None = None
+    suggested_team: str | None = None
+
+class LlmSummaryOutput(BaseModel):                  # <-- produced by the LLM
+    model_config = {"extra": "forbid"}
+
+    # Required core — prompt v1 elicits these reliably
+    human_summary: str = Field(min_length=1)        # the field surfaced in the UI
+    customer_issue: str = Field(min_length=1)
+    current_status: TicketStatus
+
+    # Best-effort — nullable/defaulted so the model is never forced to invent
+    executive_summary: str | None = None            # 1-line TL;DR, good for embedding
+    business_impact: str | None = None
+    timeline: list[TimelineEvent] = Field(default_factory=list)
+    resolution_attempts: list[str] = Field(default_factory=list)
+    pending_actions: list[PendingAction] = Field(default_factory=list)
+    final_resolution: str | None = None
+    keywords: list[str] = Field(default_factory=list)   # hybrid/semantic search
+    classification: ClassificationHints | None = None   # reserved, not elicited in v1
+python
+# System-produced fields, merged in by the orchestrator after validation.
+class ExtractionStatus(str, Enum):
+    EXTRACTED = "extracted"; METADATA_ONLY = "metadata_only"; FAILED = "failed"
+
+class AttachmentRef(BaseModel):
+    filename: str
+    mime_type: str
+    extraction_status: ExtractionStatus
+    text_summary: str | None = None
+
+class CompletenessStatus(str, Enum):
+    COMPLETE = "complete"; PARTIAL = "partial"
+
+class ContextCompleteness(BaseModel):               # the structured record behind PARTIAL
+    status: CompletenessStatus
+    missing: list[str] = Field(default_factory=list)   # e.g. "email <messageId> unretrievable"
+
+class SourceInfo(BaseModel):
+    email_count: int
+    frontier_email_meta_id: int                     # mirrors the DB marker inside the JSON
+
+class SummaryDocument(BaseModel):                    # <-- persisted to summaryJson
+    schema_version: str = SCHEMA_VERSION            # self-describing when it travels to the vector store
+    content: LlmSummaryOutput                        # LLM-produced (validated)
+    attachments: list[AttachmentRef] = Field(default_factory=list)   # system
+    context_completeness: ContextCompleteness                        # system
+    source: SourceInfo                                               # system
+Four decisions worth calling out. First, classification is in the schema but not populated by prompt v1 — it reserves the shape so no future redesign is needed, but per the earlier caution that a generative model can't reliably classify into a taxonomy it hasn't been given, population waits for a controlled vocabulary and dedicated logic (a later promptVersion, or a separate classifier). Second, schema completeness is decoupled from model capability: the schema is comprehensive now, but prompt v1 hard-requires only human_summary/customer_issue/current_status and requests the rest best-effort, so guided decoding doesn't over-constrain the 7B model. Third, content.human_summary is denormalized into the summary column so the UI reads it without parsing JSON, while the full document lands in summaryJson. Fourth, this is what makes the schema RAG-ready without a rewrite: executive_summary/customer_issue give clean embedding text, keywords drive hybrid search, current_status and context_completeness are filter facets, and source + schema_version make each JSON self-describing inside the vector index.
+
+On versioning: schema_version pins the structure, promptVersion pins the elicitation (instructions + which fields are actively requested), and modelName/modelVersion pin the generator. Every row carries all four, so any stored summary is fully interpretable and reproducible, and future consumers branch on schema_version to parse summaryJson.
+
+Folder structure
+Hexagonal / clean architecture. The dependency rule: domain imports nothing from the outer layers, application depends only on domain, and adapters/entrypoints depend inward — concretes are named in exactly one place, composition.py.
+
+src/summarizer/
+├── domain/                      # pure: no I/O, no framework, no SDKs
+│   ├── models.py                # Conversation, RawEmail, RawAttachment, ExtractedAttachment,
+│   │                            #   NormalizedConversation, Prompt, EmailRef, ...
+│   ├── schema/
+│   │   ├── v1.py                # LlmSummaryOutput, SummaryDocument (above)
+│   │   └── registry.py          # schema_version -> model, for forward-compat parsing
+│   ├── ports.py                 # the Protocol interfaces (below)
+│   └── errors.py                # TransientError / TerminalError hierarchy
+├── application/
+│   ├── summarize_ticket.py      # SummarizeTicket use-case (the orchestrator)
+│   ├── command.py               # SummarizeTicketCommand(ticket_id, email_meta_id, message_id)
+│   └── result.py                # SummaryResult(status, timing, tokens, retry_count)
+├── adapters/
+│   ├── email/                   # MySqlEmailMetadataRepository, HttpEmailGateway
+│   ├── extraction/              # SandboxedExtractor + per-type (pdf/docx/xlsx/csv/txt) + sandbox runner
+│   ├── normalize/               # DefaultThreadNormalizer (quote-strip, PII hook)
+│   ├── prompt/                  # TemplatePromptBuilder + templates/v1/
+│   ├── llm/                     # RunpodVllmClient (guided JSON, timeout)
+│   ├── validation/              # PydanticValidator
+│   └── persistence/             # MySqlSummaryRepository (CAS) + outbox_decorator.py (Phase-2 seam)
+├── config/                      # settings.py (pydantic-settings, env/SSM), logging.py
+├── observability/               # metrics.py, correlation context
+├── entrypoints/                 # sqs_consumer.py, backfill.py  (thin)
+└── composition.py               # composition root — the only place concretes are wired
+tests/ {unit, integration, e2e, fixtures}   # fixtures/ holds the synthetic tickets
+
+
+Ports and responsibilities
+The ports are Protocols (structural typing → trivial fakes in tests). Data-carrier types live in domain/models.py; shown here by name.
+
+python
+# domain/ports.py
+from typing import Protocol
+from enum import Enum
+
+class EmailMetadataRepository(Protocol):
+    def list_email_refs(self, ticket_id: int) -> list[EmailRef]: ...
+    # enumerate a ticket's emails from MySQL Email_Metadata, ordered by emailMetaId
+
+class EmailGateway(Protocol):
+    def fetch_email(self, message_id: str) -> RawEmail: ...
+    # full content + attachments from the internal Email API;
+    # raises EmailNotYetAvailable (RYW) or EmailApiTransient
+
+class AttachmentExtractor(Protocol):
+    def extract(self, attachment: RawAttachment) -> ExtractedAttachment: ...
+    # sandboxed, size/time/ratio-capped; NEVER raises for one bad file —
+    # returns EXTRACTED / METADATA_ONLY / FAILED
+
+class ThreadNormalizer(Protocol):
+    def normalize(self, emails: list[RawEmail]) -> NormalizedConversation: ...
+    # quote-strip, dedup, drop signatures/disclaimers; PII-mask hook lives here
+
+class PromptBuilder(Protocol):
+    prompt_version: str
+    def build(self, conversation: NormalizedConversation,
+              attachments: list[ExtractedAttachment], *, context_budget: int) -> Prompt: ...
+    # versioned template + token budgeting (attachment text truncated before history)
+
+class LLMClient(Protocol):
+    model_name: str
+    model_version: str
+    def complete(self, prompt: Prompt, *, json_schema: dict) -> LlmRawResponse: ...
+    # one guided-JSON call to RunPod/vLLM; raises LlmTransient on timeout/5xx; returns token usage
+
+class Validator(Protocol):
+    def validate(self, raw: LlmRawResponse) -> LlmSummaryOutput: ...
+    # parse + schema-validate; raises LlmOutputInvalid -> drives an app-level retry
+
+class WriteMode(str, Enum):
+    APPEND_ONLY = "append_only"
+    REPROCESS = "reprocess"
+
+class WriteOutcome(str, Enum):
+    WRITTEN = "written"
+    SKIPPED_SUPERSEDED = "skipped_superseded"
+
+class SummaryRepository(Protocol):
+    def get_frontier(self, ticket_id: int) -> int | None: ...
+    def upsert(self, ticket_id: int, document: SummaryDocument,
+               marker: int, mode: WriteMode) -> WriteOutcome: ...
+    # APPEND_ONLY: CAS write only if marker > stored, else SKIPPED_SUPERSEDED
+    # REPROCESS:   force-overwrite, frontier := max(stored, marker)
+    # the future outbox is a decorator wrapping this port
+The WriteMode/WriteOutcome enums put the CAS-and-reprocess decision directly in the type system, so the redrive-vs-administrative distinction can't be violated by accident. Errors are a two-branch hierarchy that the entrypoint maps mechanically to queue behavior: TransientError (EmailApiTransient, EmailNotYetAvailable, LlmTransient) → don't ack, let SQS redeliver; TerminalError (ConversationUnreconstructable, LlmOutputInvalidExhausted) → route to DLQ. Per-attachment failures are not errors — they degrade to METADATA_ONLY/FAILED and flow into context_completeness.
+
+SummarizeTicket.execute(command) orchestrates in order: read the frontier and skip early if command.email_meta_id <= frontier under APPEND_ONLY (saves all downstream work on superseded events); enumerate refs; RYW-verify the triggering message_id is fetchable; fetch all emails with bounded concurrency; extract attachments; normalize; build the budgeted prompt; run the complete → validate loop up to N app-retries (incrementing retry_count); enrich the validated LlmSummaryOutput into a SummaryDocument; and upsert under CAS. WRITTEN → OK/PARTIAL (derived from context_completeness); SKIPPED_SUPERSEDED → ack as a successful no-op; errors propagate to the entrypoint.
+
+The sqs_consumer entrypoint stays thin: parse → build command → execute → map outcome/exception to ack-or-not. One design note for the consumer — in Phase 1, terminal errors ride the natural maxReceiveCount redrive to the DLQ (simple), which costs a bounded number of wasted retries; if that waste matters later, the consumer can short-circuit a known TerminalError straight to the DLQ and ack immediately. backfill.py is the same use-case behind a rate-limited producer on the dedicated queue.
+
+Dependency injection
+Constructor injection everywhere; no globals, no service locator. composition.py is the single place concretes are named, which is also the seam where tests substitute fakes:
+
+python
+# composition.py — illustrative wiring shape, not final code
+def build_use_case(settings: Settings) -> SummarizeTicket:
+    return SummarizeTicket(
+        email_meta = MySqlEmailMetadataRepository(settings.db),
+        email_api  = HttpEmailGateway(settings.email_api),
+        extractor  = SandboxedExtractor(settings.extraction),
+        normalizer = DefaultThreadNormalizer(settings.normalize),
+        prompt     = TemplatePromptBuilder(settings.prompt),   # carries prompt_version
+        llm        = RunpodVllmClient(settings.llm),           # carries model_name/version
+        validator  = PydanticValidator(),
+        summaries  = MySqlSummaryRepository(settings.db),      # (+ OutboxDecorator later)
+        limits     = settings.limits,
+    )
+That's the contract. Chunk 2 covers configuration management (pydantic-settings over env/SSM, with max-model-len, token budgets, size/time caps, timeouts, and retry N all as config), logging and observability (structured JSON logs keyed by ticketId/messageId, PII-safe redaction, the metrics that populate processingTimeMs/tokenInput/tokenOutput/retryCount, and tracing), the testing strategy (unit against fakes, integration via testcontainers, e2e, failure injection, load), and the full prompt-versioning strategy (template mechanics, the grounding/extraction instructions that keep the 7B model factual, and how promptVersion is bumped against the schema).
+
+Does the schema meet your "design it now, no redesign later" bar — particularly the LLM-produced vs. system-enriched split and the reserved classification block? If you're happy with the contract, tell me whether you'd like chunk 2 next, or to go straight into Phase 5 implementation — in which case I'd start with domain/schema and domain/models (everything depends on them) or, if you'd rather de-risk the trickiest integrity code first, the MySqlSummaryRepository CAS write. Your call on order.
+
+
+
+
+
