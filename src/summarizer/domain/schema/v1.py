@@ -9,8 +9,9 @@ that keeps the split trustworthy.
 """
 
 from enum import StrEnum
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 SCHEMA_VERSION = "1.0"
 
@@ -77,6 +78,20 @@ class LlmSummaryOutput(BaseModel):
     final_resolution: str | None = None
     keywords: list[str] = Field(default_factory=list)
     classification: ClassificationHints | None = None
+
+    @field_validator(
+        "timeline", "resolution_attempts", "pending_actions", "keywords", mode="before"
+    )
+    @classmethod
+    def _coerce_null_list_to_empty(cls, value: Any) -> Any:
+        """vLLM's outlines guided-decoding backend isn't perfectly strict
+        about excluding ``null`` from array-typed fields -- confirmed live
+        2026-07-13, where the model emitted ``null`` for a "nothing to
+        report" list field despite the guided-JSON schema declaring it as
+        an array. Treat that the same as an empty list rather than
+        failing validation and burning an app-level retry on it.
+        """
+        return [] if value is None else value
 
 
 class ExtractionStatus(StrEnum):

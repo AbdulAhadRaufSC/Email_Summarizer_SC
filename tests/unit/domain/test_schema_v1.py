@@ -40,6 +40,18 @@ class TestLlmSummaryOutput:
         assert output.keywords == []
         assert output.classification is None
 
+    @pytest.mark.parametrize(
+        "field_name", ["timeline", "resolution_attempts", "pending_actions", "keywords"]
+    )
+    def test_null_list_field_from_llm_coerces_to_empty_list(self, field_name: str) -> None:
+        # Confirmed live 2026-07-13: vLLM's outlines guided-decoding
+        # backend isn't perfectly strict about excluding null from
+        # array-typed fields -- the model emitted null for
+        # resolution_attempts despite the guided-JSON schema declaring
+        # it as an array. This must not be a validation failure.
+        output = _minimal_llm_output(**{field_name: None})
+        assert getattr(output, field_name) == []
+
     @pytest.mark.parametrize("missing_field", ["human_summary", "customer_issue", "current_status"])
     def test_missing_required_field_is_rejected(self, missing_field: str) -> None:
         fields = {

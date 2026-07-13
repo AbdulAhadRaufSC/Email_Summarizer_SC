@@ -45,6 +45,28 @@ class TestJsonFormatter:
         assert "message_id" not in payload
         assert "email_meta_id" not in payload
 
+    def test_includes_operational_fields_when_present(self) -> None:
+        # Regression: these were silently dropped until the allow-list
+        # was extended past the three original correlation keys --
+        # caught by a real CLI run whose completion log line was
+        # missing write_outcome/status/timing/tokens.
+        record = _make_record(
+            write_outcome="written",
+            status="OK",
+            processing_time_ms=10187,
+            retry_count=0,
+            token_input=1707,
+            token_output=261,
+        )
+        payload = json.loads(_JsonFormatter().format(record))
+
+        assert payload["write_outcome"] == "written"
+        assert payload["status"] == "OK"
+        assert payload["processing_time_ms"] == 10187
+        assert payload["retry_count"] == 0
+        assert payload["token_input"] == 1707
+        assert payload["token_output"] == 261
+
     def test_never_emits_raw_email_body_fields(self) -> None:
         # Guards the "never log email bodies / PII" contract: only the
         # allow-listed correlation keys are ever pulled from the record.

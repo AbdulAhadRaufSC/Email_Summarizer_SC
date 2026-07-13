@@ -34,7 +34,7 @@ class TestSettings:
         assert settings.db.port == 3306
         assert settings.email_api.timeout_seconds == 30
         assert settings.extraction.max_file_bytes == 10 * 1024 * 1024
-        assert settings.llm.max_context_tokens == 16384
+        assert settings.llm.max_context_tokens == 32768
         assert settings.pipeline.llm_validation_retries == 3
 
     def test_env_prefix_overrides_sub_settings_defaults(

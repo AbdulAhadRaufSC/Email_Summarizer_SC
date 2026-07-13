@@ -26,8 +26,22 @@ class _JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": record.getMessage(),
         }
-        # Carry pipeline correlation fields when provided via `extra=`.
-        for key in ("ticket_id", "message_id", "email_meta_id"):
+        # Carry pipeline correlation + operational fields when provided
+        # via `extra=`. Deliberately an explicit allow-list (not "log
+        # whatever's in extra=") so a careless future `extra=` call
+        # elsewhere can't accidentally leak email body / attachment
+        # content into logs.
+        for key in (
+            "ticket_id",
+            "message_id",
+            "email_meta_id",
+            "write_outcome",
+            "status",
+            "processing_time_ms",
+            "retry_count",
+            "token_input",
+            "token_output",
+        ):
             value = getattr(record, key, None)
             if value is not None:
                 payload[key] = value

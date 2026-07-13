@@ -3,12 +3,25 @@
 Uses ``pydantic-settings`` so every parameter is validated at startup
 and exposed as a typed attribute.  Secrets stay in ``.env`` (gitignored)
 and are never logged.
+
+``load_dotenv()`` runs at import time rather than relying on each
+``BaseSettings`` subclass's own ``env_file`` config: pydantic-settings'
+``.env`` loading is per-class, not inherited through a nested
+``Field(default_factory=...)`` -- ``Settings`` (the top-level class) has
+``env_file=".env"``, but ``DatabaseSettings``, ``RunpodSettings``, etc.
+are each independently instantiated by their own default factory and
+would otherwise only see real process environment variables, never the
+``.env`` file. Loading the file into ``os.environ`` once, up front,
+makes every sub-settings class see the same values uniformly.
 """
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+load_dotenv()
 
 
 class DatabaseSettings(BaseSettings):
@@ -50,12 +63,17 @@ class ExtractionSettings(BaseSettings):
 class LlmSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="LLM_")
 
-    # Must match the model id worker-vllm was launched with -- the
-    # OpenAI-compatible route validates the request's "model" field
-    # against it.
-    model_name: str = "Qwen/Qwen2.5-7B-Instruct"
+    # Must exactly match the model id GET /openai/v1/models reports for
+    # this endpoint -- confirmed live 2026-07-13 to be lowercase
+    # ("qwen/qwen2.5-7b-instruct"), NOT the HF repo casing
+    # ("Qwen/Qwen2.5-7B-Instruct"). A mismatched case was silently
+    # returning a generic 500 rather than a clean "model not found",
+    # which is why this needed a live call to catch.
+    model_name: str = "qwen/qwen2.5-7b-instruct"
     model_version: str = "2.5"
-    max_context_tokens: int = 16384
+    # Confirmed live via GET /openai/v1/models ("max_model_len": 32768)
+    # 2026-07-13 -- supersedes the earlier unverified value of 16384.
+    max_context_tokens: int = 32768
     max_output_tokens: int = 2048
     temperature: float = 0.0
     top_p: float = 1.0
