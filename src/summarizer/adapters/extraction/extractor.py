@@ -16,6 +16,7 @@ from concurrent.futures import TimeoutError as FuturesTimeout
 from summarizer.adapters.extraction.handlers import (
     extract_csv_text,
     extract_docx,
+    extract_image,
     extract_pdf,
     extract_txt,
     extract_xlsx,
@@ -35,6 +36,12 @@ _EXTRACTABLE_MIMES: dict[str, str] = {
     "text/csv": "csv",
     "text/plain": "txt",
     "text/tab-separated-values": "csv",
+    "image/png": "image",
+    "image/jpeg": "image",
+    "image/jpg": "image",
+    "image/tiff": "image",
+    "image/bmp": "image",
+    "image/webp": "image",
 }
 
 
@@ -173,6 +180,8 @@ class SandboxedExtractor:
             return extract_csv_text(data)
         elif fmt == "txt":
             return extract_txt(data)
+        elif fmt == "image":
+            return extract_image(data)
         else:
             raise ValueError(f"Unknown format: {fmt}")
 

@@ -24,8 +24,11 @@ def _attachment(**overrides: object) -> RawAttachment:
 
 class TestUnsupportedAndMissingContent:
     def test_unsupported_mime_is_metadata_only(self) -> None:
+        # message/rfc822 (an .eml attachment) is intentionally out of
+        # Phase 1 scope -- unlike images, which now OCR (see
+        # TestImageOcr below).
         extractor = SandboxedExtractor()
-        result = extractor.extract(_attachment(mime_type="image/png"))
+        result = extractor.extract(_attachment(mime_type="message/rfc822"))
 
         assert result.extraction_status is ExtractionStatus.METADATA_ONLY
         assert result.extracted_text is None
@@ -179,3 +182,51 @@ class TestExtractionOutcomes:
         assert result.extraction_status is ExtractionStatus.EXTRACTED
         expected_key = "xlsx" if "spreadsheet" in mime_type else "csv"
         assert called[expected_key] is True
+
+
+class TestImageOcr:
+    @pytest.mark.parametrize(
+        "mime_type",
+        ["image/png", "image/jpeg", "image/jpg", "image/tiff", "image/bmp", "image/webp"],
+    )
+    def test_image_mime_types_route_to_ocr_handler(
+        self, monkeypatch: pytest.MonkeyPatch, mime_type: str
+    ) -> None:
+        monkeypatch.setattr(
+            "summarizer.adapters.extraction.extractor.extract_image",
+            lambda data: "Error code: E404",
+        )
+        extractor = SandboxedExtractor()
+        result = extractor.extract(_attachment(mime_type=mime_type))
+
+        assert result.extraction_status is ExtractionStatus.EXTRACTED
+        assert result.extracted_text == "Error code: E404"
+
+    def test_image_with_no_readable_text_is_metadata_only(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A photo with no text in it -- OCR runs fine but returns
+        # nothing, which is the existing "empty extracted text" path,
+        # not a failure.
+        monkeypatch.setattr(
+            "summarizer.adapters.extraction.extractor.extract_image", lambda data: ""
+        )
+        extractor = SandboxedExtractor()
+        result = extractor.extract(_attachment(mime_type="image/png"))
+
+        assert result.extraction_status is ExtractionStatus.METADATA_ONLY
+
+    def test_ocr_engine_failure_degrades_to_failed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # e.g. TesseractNotFoundError if the binary isn't on PATH --
+        # must degrade like any other handler exception, never raise.
+        def _boom(data: bytes) -> str:
+            raise RuntimeError("tesseract is not installed or it's not in your PATH")
+
+        monkeypatch.setattr("summarizer.adapters.extraction.extractor.extract_image", _boom)
+        extractor = SandboxedExtractor()
+        result = extractor.extract(_attachment(mime_type="image/png"))
+
+        assert result.extraction_status is ExtractionStatus.FAILED
+        assert "tesseract" in (result.error_message or "").lower()

@@ -81,3 +81,21 @@ def extract_csv_text(data: bytes) -> str:
 def extract_txt(data: bytes) -> str:
     """Extract text from a plain text file."""
     return data.decode("utf-8", errors="replace").strip()
+
+
+def extract_image(data: bytes) -> str:
+    """OCR an image using Tesseract via pytesseract.
+
+    Requires the ``tesseract-ocr`` binary on the worker's PATH -- a
+    system package, not something ``uv sync`` installs. Pillow's
+    default ``Image.MAX_IMAGE_PIXELS`` guard raises
+    ``DecompressionBombError`` on absurdly large images before OCR ever
+    runs, which the caller's generic exception handling degrades to
+    ``FAILED`` the same as any other extraction error.
+    """
+    import pytesseract  # type: ignore[import-untyped]
+    from PIL import Image
+
+    with Image.open(io.BytesIO(data)) as image:
+        text: str = pytesseract.image_to_string(image)
+        return text.strip()
