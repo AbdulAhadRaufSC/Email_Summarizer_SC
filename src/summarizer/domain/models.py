@@ -29,12 +29,16 @@ class EmailRef:
     """Lightweight reference to an email, from ``Email_Metadata``.
 
     Carries just enough for the gateway to fetch the full content and
-    for the orchestrator to know the frontier ordering.
+    for the orchestrator to know the frontier ordering. ``thread_id``
+    is carried here (rather than read off the fetched ``RawEmail``)
+    because the gateway now needs it as a query parameter *before* the
+    email is fetched -- see ``EmailGateway.fetch_email``.
     """
 
     email_meta_id: int
     message_id: str
     is_note: bool
+    thread_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

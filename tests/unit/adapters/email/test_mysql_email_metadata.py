@@ -60,8 +60,8 @@ class TestListEmailRefs:
     def test_maps_rows_to_email_refs_in_order(self) -> None:
         cursor = _FakeCursor(
             rows=[
-                (101, "msg-101", 0),
-                (102, "msg-102", 1),
+                (101, "msg-101", 0, "thread-1"),
+                (102, "msg-102", 1, "thread-1"),
             ]
         )
         connection = _FakeConnection(cursor)
@@ -72,6 +72,7 @@ class TestListEmailRefs:
         assert [r.email_meta_id for r in refs] == [101, 102]
         assert refs[0].message_id == "msg-101"
         assert refs[0].is_note is False
+        assert refs[0].thread_id == "thread-1"
         assert refs[1].is_note is True
 
     def test_returns_empty_list_when_no_rows(self) -> None:

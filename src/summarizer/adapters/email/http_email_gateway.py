@@ -1,7 +1,15 @@
 """HTTP adapter for the EmailGateway port.
 
-Calls the internal Email API at
-``{base_url}/{messageId}`` to fetch full email content + attachments.
+Calls the internal Email API at ``{base_url}`` with query parameters
+``companyId``, ``ticketId``, ``emailMetaId``, ``messageId`` and
+``threadId`` to fetch full email content + attachments.
+
+Previously the API was looked up by ``messageId`` alone
+(``{base_url}/{messageId}``); that was occasionally returning an empty
+array for emails that do in fact exist (see CLAUDE.md's ticket 239907
+finding). Disambiguating with the full set of identifiers fixes that.
+``companyId`` is static -- this deployment only ever serves one
+company, "steppingcloud".
 
 Per user confirmation:
 * No authentication required.
@@ -21,9 +29,12 @@ from summarizer.domain.models import RawAttachment, RawEmail
 
 logger = logging.getLogger(__name__)
 
+_COMPANY_ID = "steppingcloud"
+
 
 class HttpEmailGateway:
-    """Fetches a single email by ``messageId`` from the Email API.
+    """Fetches a single email from the Email API by its full set of
+    identifiers (ticket, emailMeta, message, thread).
 
     The API returns a JSON array; we take the first element.
     Attachments include base64 ``content`` which is passed through
@@ -35,12 +46,33 @@ class HttpEmailGateway:
         self._timeout = timeout_seconds
         self._session = requests.Session()
 
-    def fetch_email(self, message_id: str) -> RawEmail:
-        url = f"{self._base_url}/{message_id}"
-        logger.info("Fetching email from API", extra={"message_id": message_id})
+    def fetch_email(
+        self,
+        *,
+        ticket_id: int,
+        email_meta_id: int,
+        message_id: str,
+        thread_id: str | None,
+    ) -> RawEmail:
+        params: dict[str, str | int | None] = {
+            "companyId": _COMPANY_ID,
+            "ticketId": ticket_id,
+            "emailMetaId": email_meta_id,
+            "messageId": message_id,
+            "threadId": thread_id,
+        }
+        logger.info(
+            "Fetching email from API",
+            extra={
+                "ticket_id": ticket_id,
+                "email_meta_id": email_meta_id,
+                "message_id": message_id,
+                "thread_id": thread_id,
+            },
+        )
 
         try:
-            response = self._session.get(url, timeout=self._timeout)
+            response = self._session.get(self._base_url, params=params, timeout=self._timeout)
         except requests.exceptions.ConnectionError as exc:
             raise EmailApiTransient(f"Connection error fetching {message_id}: {exc}") from exc
         except requests.exceptions.Timeout as exc:

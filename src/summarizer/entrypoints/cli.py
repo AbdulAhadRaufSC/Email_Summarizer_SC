@@ -55,6 +55,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     settings = Settings()
     use_case = build_use_case(settings)
 
+    
+    #add thread_id and company_id
     command = SummarizeTicketCommand(
         ticket_id=args.ticket_id,
         email_meta_id=args.email_meta_id,

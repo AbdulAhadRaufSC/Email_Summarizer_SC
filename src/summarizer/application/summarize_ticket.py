@@ -109,11 +109,21 @@ class SummarizeTicket:
                 f"No emails found for ticket {command.ticket_id}"
             )
 
+        triggering_ref = next(
+            (r for r in refs if r.email_meta_id == command.email_meta_id), None
+        )
+        triggering_thread_id = triggering_ref.thread_id if triggering_ref else None
+
         # Read-your-writes gate: the triggering email must be fetchable
         # before we summarize a thread that might not include it yet.
-        triggering_email = self._email_api.fetch_email(command.message_id)
+        triggering_email = self._email_api.fetch_email(
+            ticket_id=command.ticket_id,
+            email_meta_id=command.email_meta_id,
+            message_id=command.message_id,
+            thread_id=triggering_thread_id,
+        )
 
-        raw_emails = self._fetch_all(refs, triggering_email)
+        raw_emails = self._fetch_all(command.ticket_id, refs, triggering_email)
         extracted_attachments = self._extract_attachments(raw_emails)
 
         conversation = self._normalizer.normalize(raw_emails)
@@ -171,13 +181,20 @@ class SummarizeTicket:
             retry_count=retry_count,
         )
 
-    def _fetch_all(self, refs: Sequence[EmailRef], triggering_email: RawEmail) -> list[RawEmail]:
+    def _fetch_all(
+        self, ticket_id: int, refs: Sequence[EmailRef], triggering_email: RawEmail
+    ) -> list[RawEmail]:
         """Fetch every referenced email, reusing the RYW-gate fetch for
         the triggering message instead of fetching it twice."""
         cache = {triggering_email.message_id: triggering_email}
 
         def fetch_one(ref: EmailRef) -> RawEmail:
-            raw = cache.get(ref.message_id) or self._email_api.fetch_email(ref.message_id)
+            raw = cache.get(ref.message_id) or self._email_api.fetch_email(
+                ticket_id=ticket_id,
+                email_meta_id=ref.email_meta_id,
+                message_id=ref.message_id,
+                thread_id=ref.thread_id,
+            )
             return dataclasses.replace(raw, is_note=ref.is_note)
 
         with ThreadPoolExecutor(max_workers=self._email_fetch_concurrency) as pool:

@@ -44,10 +44,12 @@ class _FakeSession:
         self._response = response
         self._raise_exc = raise_exc
         self.last_url: str | None = None
+        self.last_params: dict[str, Any] | None = None
         self.last_timeout: int | None = None
 
-    def get(self, url: str, timeout: int) -> _FakeResponse:
+    def get(self, url: str, params: dict[str, Any], timeout: int) -> _FakeResponse:
         self.last_url = url
+        self.last_params = params
         self.last_timeout = timeout
         if self._raise_exc is not None:
             raise self._raise_exc
@@ -63,12 +65,28 @@ def _gateway_with(
     return gw
 
 
+def _fetch(
+    gw: HttpEmailGateway,
+    *,
+    ticket_id: int = 1,
+    email_meta_id: int = 101,
+    message_id: str = "msg-1",
+    thread_id: str | None = "thread-1",
+):
+    return gw.fetch_email(
+        ticket_id=ticket_id,
+        email_meta_id=email_meta_id,
+        message_id=message_id,
+        thread_id=thread_id,
+    )
+
+
 class TestFetchEmailHappyPath:
     def test_parses_full_email(self) -> None:
         session = _FakeSession(_FakeResponse(200, [SAMPLE_EMAIL]))
         gw = _gateway_with(session)
 
-        email = gw.fetch_email("msg-1")
+        email = _fetch(gw)
 
         assert email.message_id == "msg-1"
         assert email.subject == "Cannot log in"
@@ -80,21 +98,37 @@ class TestFetchEmailHappyPath:
         assert email.attachments[0].filename == "log.txt"
         assert email.attachments[0].content_base64 == "aGVsbG8="
 
-    def test_requests_correct_url_and_timeout(self) -> None:
+    def test_requests_correct_url_query_params_and_timeout(self) -> None:
         session = _FakeSession(_FakeResponse(200, [SAMPLE_EMAIL]))
         gw = _gateway_with(session, base_url="https://mail.example.com/api/emails/")
 
-        gw.fetch_email("msg-1")
+        _fetch(gw, ticket_id=7, email_meta_id=101, message_id="msg-1", thread_id="thread-1")
 
-        assert session.last_url == "https://mail.example.com/api/emails/msg-1"
+        assert session.last_url == "https://mail.example.com/api/emails"
+        assert session.last_params == {
+            "companyId": "steppingcloud",
+            "ticketId": 7,
+            "emailMetaId": 101,
+            "messageId": "msg-1",
+            "threadId": "thread-1",
+        }
         assert session.last_timeout == 5
+
+    def test_passes_none_thread_id_through_as_none(self) -> None:
+        session = _FakeSession(_FakeResponse(200, [SAMPLE_EMAIL]))
+        gw = _gateway_with(session)
+
+        _fetch(gw, thread_id=None)
+
+        assert session.last_params is not None
+        assert session.last_params["threadId"] is None
 
     def test_handles_missing_optional_fields(self) -> None:
         minimal = {"messageId": "msg-2"}
         session = _FakeSession(_FakeResponse(200, [minimal]))
         gw = _gateway_with(session)
 
-        email = gw.fetch_email("msg-2")
+        email = _fetch(gw, message_id="msg-2")
 
         assert email.subject == ""
         assert email.from_address == ""
@@ -107,7 +141,7 @@ class TestFetchEmailHappyPath:
         session = _FakeSession(_FakeResponse(200, [no_id]))
         gw = _gateway_with(session)
 
-        email = gw.fetch_email("requested-id")
+        email = _fetch(gw, message_id="requested-id")
 
         assert email.message_id == "requested-id"
 
@@ -118,32 +152,32 @@ class TestFetchEmailErrors:
         gw = _gateway_with(session)
 
         with pytest.raises(EmailNotYetAvailable):
-            gw.fetch_email("msg-1")
+            _fetch(gw)
 
     def test_empty_array_raises_email_not_yet_available(self) -> None:
         session = _FakeSession(_FakeResponse(200, []))
         gw = _gateway_with(session)
 
         with pytest.raises(EmailNotYetAvailable):
-            gw.fetch_email("msg-1")
+            _fetch(gw)
 
     def test_5xx_raises_email_api_transient(self) -> None:
         session = _FakeSession(_FakeResponse(503, {}))
         gw = _gateway_with(session)
 
         with pytest.raises(EmailApiTransient):
-            gw.fetch_email("msg-1")
+            _fetch(gw)
 
     def test_connection_error_raises_email_api_transient(self) -> None:
         session = _FakeSession(raise_exc=requests.exceptions.ConnectionError("refused"))
         gw = _gateway_with(session)
 
         with pytest.raises(EmailApiTransient):
-            gw.fetch_email("msg-1")
+            _fetch(gw)
 
     def test_timeout_raises_email_api_transient(self) -> None:
         session = _FakeSession(raise_exc=requests.exceptions.Timeout("slow"))
         gw = _gateway_with(session)
 
         with pytest.raises(EmailApiTransient):
-            gw.fetch_email("msg-1")
+            _fetch(gw)

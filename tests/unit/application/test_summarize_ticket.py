@@ -36,8 +36,12 @@ from summarizer.domain.schema.v1 import (
 )
 
 
-def _ref(email_meta_id: int, message_id: str, is_note: bool = False) -> EmailRef:
-    return EmailRef(email_meta_id=email_meta_id, message_id=message_id, is_note=is_note)
+def _ref(
+    email_meta_id: int, message_id: str, is_note: bool = False, thread_id: str | None = "thread-1"
+) -> EmailRef:
+    return EmailRef(
+        email_meta_id=email_meta_id, message_id=message_id, is_note=is_note, thread_id=thread_id
+    )
 
 
 def _raw_email(message_id: str, attachments: list[RawAttachment] | None = None) -> RawEmail:
@@ -80,9 +84,25 @@ class FakeEmailGateway:
         self._emails = emails
         self._error = error
         self.fetch_calls: list[str] = []
+        self.fetch_call_kwargs: list[dict[str, object]] = []
 
-    def fetch_email(self, message_id: str) -> RawEmail:
+    def fetch_email(
+        self,
+        *,
+        ticket_id: int,
+        email_meta_id: int,
+        message_id: str,
+        thread_id: str | None,
+    ) -> RawEmail:
         self.fetch_calls.append(message_id)
+        self.fetch_call_kwargs.append(
+            {
+                "ticket_id": ticket_id,
+                "email_meta_id": email_meta_id,
+                "message_id": message_id,
+                "thread_id": thread_id,
+            }
+        )
         if self._error is not None:
             raise self._error
         return self._emails[message_id]
@@ -270,6 +290,33 @@ class TestHappyPath:
         email_api: FakeEmailGateway = fakes["email_api"]  # type: ignore[assignment]
         assert email_api.fetch_calls.count("msg-102") == 1
         assert email_api.fetch_calls.count("msg-101") == 1
+
+    def test_fetch_email_called_with_full_identifiers(self) -> None:
+        refs = [
+            _ref(101, "msg-101", thread_id="thread-a"),
+            _ref(102, "msg-102", thread_id="thread-b"),
+        ]
+        emails = {"msg-101": _raw_email("msg-101"), "msg-102": _raw_email("msg-102")}
+        orchestrator, fakes = _build_orchestrator(refs=refs, emails=emails)
+
+        orchestrator.execute(
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=102, message_id="msg-102")
+        )
+
+        email_api: FakeEmailGateway = fakes["email_api"]  # type: ignore[assignment]
+        by_message_id = {c["message_id"]: c for c in email_api.fetch_call_kwargs}
+        assert by_message_id["msg-102"] == {
+            "ticket_id": 1,
+            "email_meta_id": 102,
+            "message_id": "msg-102",
+            "thread_id": "thread-b",
+        }
+        assert by_message_id["msg-101"] == {
+            "ticket_id": 1,
+            "email_meta_id": 101,
+            "message_id": "msg-101",
+            "thread_id": "thread-a",
+        }
 
     def test_correlates_is_note_from_ref_onto_raw_email(self) -> None:
         refs = [_ref(101, "msg-101", is_note=True)]

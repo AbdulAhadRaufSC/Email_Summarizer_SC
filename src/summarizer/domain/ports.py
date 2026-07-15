@@ -91,9 +91,22 @@ class EmailMetadataRepository(Protocol):
 class EmailGateway(Protocol):
     """Fetches full email content + attachments from the internal Email
     API.  Raises ``EmailNotYetAvailable`` (RYW gate) or
-    ``EmailApiTransient`` on failure."""
+    ``EmailApiTransient`` on failure.
 
-    def fetch_email(self, message_id: str) -> RawEmail: ...
+    ``ticket_id``, ``email_meta_id`` and ``thread_id`` are passed
+    alongside ``message_id`` because the Email API now requires all of
+    them as query parameters -- looking a message up by ``messageId``
+    alone was occasionally returning an empty result (see CLAUDE.md's
+    "real-data finding" for ticket 239907)."""
+
+    def fetch_email(
+        self,
+        *,
+        ticket_id: int,
+        email_meta_id: int,
+        message_id: str,
+        thread_id: str | None,
+    ) -> RawEmail: ...
 
 
 class AttachmentExtractor(Protocol):

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 _TRANSIENT_MYSQL_ERROR_CODES = {1205, 1213, 2006, 2013}
 
 _LIST_EMAIL_REFS_SQL = """
-SELECT emailMetaId, messageId, isNote
+SELECT emailMetaId, messageId, isNote, threadId
 FROM Email_Metadata
 WHERE ticketId = %s
   AND isDraft = 0
@@ -52,6 +52,7 @@ class MySqlEmailMetadataRepository:
                         email_meta_id=int(row[0]),
                         message_id=str(row[1]),
                         is_note=bool(row[2]),
+                        thread_id=row[3],
                     )
                     for row in rows
                 ]
