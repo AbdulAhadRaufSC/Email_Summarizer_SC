@@ -1,26 +1,37 @@
 """HTTP adapter for the EmailGateway port.
 
-Calls the internal Email API at ``{base_url}`` with query parameters
-``companyId``, ``ticketId``, ``emailMetaId``, ``messageId`` and
+Calls the internal Email API's ``getMailBody`` endpoint with query
+parameters ``companyId``, ``ticketId``, ``emailMetaId`` and
 ``threadId`` to fetch full email content + attachments.
 
-Previously the API was looked up by ``messageId`` alone
-(``{base_url}/{messageId}``); that was occasionally returning an empty
-array for emails that do in fact exist (see CLAUDE.md's ticket 239907
-finding). Disambiguating with the full set of identifiers fixes that.
-``companyId`` is static -- this deployment only ever serves one
-company, "steppingcloud".
+Contract updated 2026-07-16 (see CLAUDE.md). Two changes from the
+previous ``messageId``-inclusive contract:
 
-Per user confirmation:
+* The API no longer takes ``messageId`` as a filter param. Lookup is
+  by (companyId, ticketId, emailMetaId, threadId) alone --
+  ``email_meta_id`` is already the row's own PK, so it's unambiguous
+  without ``messageId``. ``message_id`` is still accepted on this
+  method's signature (used as the RawEmail fallback when the response
+  omits its own id) but is not sent on the wire.
+* The response envelope changed from a bare JSON array to
+  ``{"status": <int>, "result": {...single email object...}}``.
+
+Per user confirmation (2026-07-16):
 * No authentication required.
 * No rate limits.
-* Any non-200 status is an error.
-* Response is always a JSON array.
+* An HTTP status other than 200 is an error (404 -> not yet available).
+
+NOT YET CONFIRMED AGAINST STAGING: whether "not yet available" can
+also be signalled via a body-level ``status`` field on an HTTP-200
+response, rather than only via HTTP 404. Handled defensively below so
+the RYW gate degrades safely either way; verify against a real
+not-yet-available ticket on stage and simplify this once confirmed.
 """
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import requests
 
@@ -32,13 +43,25 @@ logger = logging.getLogger(__name__)
 _COMPANY_ID = "steppingcloud"
 
 
-class HttpEmailGateway:
-    """Fetches a single email from the Email API by its full set of
-    identifiers (ticket, emailMeta, message, thread).
+def _strip_data_uri_prefix(value: str | None) -> str | None:
+    """``fileBase64`` arrives as ``data:<mime>;base64,<data>``, not raw
+    base64. ``base64.b64decode`` doesn't error on the prefix (its
+    letters are valid base64 alphabet) -- it silently decodes to
+    corrupted bytes instead, so this must be stripped explicitly."""
+    if value is None:
+        return None
+    if value.startswith("data:") and "," in value:
+        return value.split(",", 1)[1]
+    return value
 
-    The API returns a JSON array; we take the first element.
-    Attachments include base64 ``content`` which is passed through
-    as-is for the extractor to decode later.
+
+class HttpEmailGateway:
+    """Fetches a single email from the Email API by
+    (ticket, emailMeta, thread) -- see module docstring for the
+    2026-07-16 contract change.
+
+    Attachments include base64 ``fileBase64`` (data-URI prefixed),
+    which is stripped and passed through for the extractor to decode.
     """
 
     def __init__(self, base_url: str, timeout_seconds: int = 30) -> None:
@@ -58,7 +81,6 @@ class HttpEmailGateway:
             "companyId": _COMPANY_ID,
             "ticketId": ticket_id,
             "emailMetaId": email_meta_id,
-            "messageId": message_id,
             "threadId": thread_id,
         }
         logger.info(
@@ -89,16 +111,34 @@ class HttpEmailGateway:
             )
 
         data = response.json()
-
-        # Response is always a JSON array; take the first element.
-        if isinstance(data, list):
-            if not data:
-                raise EmailNotYetAvailable(f"Email API returned empty array for {message_id}")
-            email_data = data[0]
-        else:
-            email_data = data
-
+        email_data = self._unwrap_envelope(data, message_id)
         return self._parse_email(email_data, message_id)
+
+    def _unwrap_envelope(self, data: Any, message_id: str) -> dict[str, Any]:
+        """Unwrap ``{"status": int, "result": {...}}``.
+
+        Defensively checks the body-level ``status`` in case "not yet
+        available" is signalled that way on an HTTP-200 response (see
+        module docstring — unconfirmed against staging).
+        """
+        if not isinstance(data, dict) or "result" not in data:
+            raise EmailApiTransient(
+                f"Unexpected Email API response shape for {message_id}: {data!r}"
+            )
+
+        body_status = data.get("status")
+        if body_status is not None and body_status != 200:
+            if body_status == 404:
+                raise EmailNotYetAvailable(
+                    f"Email API body status 404 for {message_id} — may not be available yet"
+                )
+            raise EmailApiTransient(f"Email API body status {body_status} for {message_id}")
+
+        result = data.get("result")
+        if not result:
+            raise EmailNotYetAvailable(f"Email API returned empty result for {message_id}")
+
+        return result  # type: ignore[no-any-return]
 
     def _parse_email(self, data: dict, message_id: str) -> RawEmail:  # type: ignore[type-arg]
         """Parse the Email API JSON into a ``RawEmail`` domain object."""
@@ -114,13 +154,13 @@ class HttpEmailGateway:
 
         raw_attachments = [
             RawAttachment(
-                filename=att.get("filename", "unknown"),
-                mime_type=att.get("mimeType", "application/octet-stream"),
+                filename=att.get("fileName", "unknown"),
+                mime_type=att.get("fileType", "application/octet-stream"),
                 size=att.get("size", 0),
-                attachment_id=att.get("attachmentId", ""),
-                content_base64=att.get("content"),
+                attachment_id=str(att.get("emailAttachmentID", "")),
+                content_base64=_strip_data_uri_prefix(att.get("fileBase64")),
             )
-            for att in data.get("attachments", [])
+            for att in data.get("attachment", [])
         ]
 
         return RawEmail(
@@ -132,7 +172,7 @@ class HttpEmailGateway:
             date=data.get("date"),
             text_body=data.get("text"),
             latest_text_body=data.get("latest_text_body"),
-            html_body=data.get("html"),
+            html_body=data.get("mailBody"),
             in_reply_to=data.get("inReplyTo"),
             thread_id=data.get("threadId"),
             attachments=raw_attachments,

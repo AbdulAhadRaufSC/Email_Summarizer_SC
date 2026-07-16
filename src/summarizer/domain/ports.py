@@ -93,11 +93,12 @@ class EmailGateway(Protocol):
     API.  Raises ``EmailNotYetAvailable`` (RYW gate) or
     ``EmailApiTransient`` on failure.
 
-    ``ticket_id``, ``email_meta_id`` and ``thread_id`` are passed
-    alongside ``message_id`` because the Email API now requires all of
-    them as query parameters -- looking a message up by ``messageId``
-    alone was occasionally returning an empty result (see CLAUDE.md's
-    "real-data finding" for ticket 239907)."""
+    ``ticket_id``, ``email_meta_id`` and ``thread_id`` uniquely locate
+    the email server-side (``email_meta_id`` is the row's own PK, so
+    it's already unambiguous). ``message_id`` is kept on the signature
+    for the RawEmail fallback and caller bookkeeping but, as of the
+    ``getMailBody`` contract (2026-07-16), is no longer sent as a query
+    parameter -- see CLAUDE.md."""
 
     def fetch_email(
         self,

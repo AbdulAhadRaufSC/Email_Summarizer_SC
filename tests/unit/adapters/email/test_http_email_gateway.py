@@ -15,19 +15,23 @@ SAMPLE_EMAIL = {
     "to": {"value": [{"address": "support@example.com"}]},
     "date": "2026-07-01T10:00:00Z",
     "text": "Full accumulated text",
-    "html": "<p>Full accumulated text</p>",
+    "mailBody": "<p>Full accumulated text</p>",
     "inReplyTo": None,
     "threadId": "thread-1",
-    "attachments": [
+    "attachment": [
         {
-            "filename": "log.txt",
-            "mimeType": "text/plain",
+            "emailAttachmentID": 163592,
+            "fileName": "log.txt",
+            "fileType": "text/plain",
             "size": 123,
-            "attachmentId": "att-1",
-            "content": "aGVsbG8=",
+            "fileBase64": "data:text/plain;base64,aGVsbG8=",
         }
     ],
 }
+
+
+def _envelope(result: Any, status: int = 200) -> dict[str, Any]:
+    return {"status": status, "result": result}
 
 
 class _FakeResponse:
@@ -58,7 +62,7 @@ class _FakeSession:
 
 
 def _gateway_with(
-    session: _FakeSession, base_url: str = "https://mail.example.com/api/emails"
+    session: _FakeSession, base_url: str = "https://mail.example.com/api/getMailBody"
 ) -> HttpEmailGateway:
     gw = HttpEmailGateway(base_url=base_url, timeout_seconds=5)
     gw._session = session  # type: ignore[assignment]
@@ -83,7 +87,7 @@ def _fetch(
 
 class TestFetchEmailHappyPath:
     def test_parses_full_email(self) -> None:
-        session = _FakeSession(_FakeResponse(200, [SAMPLE_EMAIL]))
+        session = _FakeSession(_FakeResponse(200, _envelope(SAMPLE_EMAIL)))
         gw = _gateway_with(session)
 
         email = _fetch(gw)
@@ -94,28 +98,32 @@ class TestFetchEmailHappyPath:
         assert email.from_name == "Customer One"
         assert email.to_addresses == ["support@example.com"]
         assert email.thread_id == "thread-1"
+        assert email.html_body == "<p>Full accumulated text</p>"
         assert len(email.attachments) == 1
         assert email.attachments[0].filename == "log.txt"
+        assert email.attachments[0].mime_type == "text/plain"
+        assert email.attachments[0].attachment_id == "163592"
+        # data: URI prefix must be stripped before it reaches the extractor.
         assert email.attachments[0].content_base64 == "aGVsbG8="
 
     def test_requests_correct_url_query_params_and_timeout(self) -> None:
-        session = _FakeSession(_FakeResponse(200, [SAMPLE_EMAIL]))
-        gw = _gateway_with(session, base_url="https://mail.example.com/api/emails/")
+        session = _FakeSession(_FakeResponse(200, _envelope(SAMPLE_EMAIL)))
+        gw = _gateway_with(session, base_url="https://mail.example.com/api/getMailBody/")
 
         _fetch(gw, ticket_id=7, email_meta_id=101, message_id="msg-1", thread_id="thread-1")
 
-        assert session.last_url == "https://mail.example.com/api/emails"
+        assert session.last_url == "https://mail.example.com/api/getMailBody"
+        # messageId is no longer sent as a query param under the new contract.
         assert session.last_params == {
             "companyId": "steppingcloud",
             "ticketId": 7,
             "emailMetaId": 101,
-            "messageId": "msg-1",
             "threadId": "thread-1",
         }
         assert session.last_timeout == 5
 
     def test_passes_none_thread_id_through_as_none(self) -> None:
-        session = _FakeSession(_FakeResponse(200, [SAMPLE_EMAIL]))
+        session = _FakeSession(_FakeResponse(200, _envelope(SAMPLE_EMAIL)))
         gw = _gateway_with(session)
 
         _fetch(gw, thread_id=None)
@@ -125,7 +133,7 @@ class TestFetchEmailHappyPath:
 
     def test_handles_missing_optional_fields(self) -> None:
         minimal = {"messageId": "msg-2"}
-        session = _FakeSession(_FakeResponse(200, [minimal]))
+        session = _FakeSession(_FakeResponse(200, _envelope(minimal)))
         gw = _gateway_with(session)
 
         email = _fetch(gw, message_id="msg-2")
@@ -138,12 +146,31 @@ class TestFetchEmailHappyPath:
 
     def test_falls_back_to_requested_message_id_when_absent(self) -> None:
         no_id = {k: v for k, v in SAMPLE_EMAIL.items() if k != "messageId"}
-        session = _FakeSession(_FakeResponse(200, [no_id]))
+        session = _FakeSession(_FakeResponse(200, _envelope(no_id)))
         gw = _gateway_with(session)
 
         email = _fetch(gw, message_id="requested-id")
 
         assert email.message_id == "requested-id"
+
+    def test_attachment_without_data_uri_prefix_passes_through_unchanged(self) -> None:
+        # Defensive: if a future response ever sends raw base64 (no
+        # "data:...;base64," prefix), it should not be mangled.
+        raw_variant = dict(SAMPLE_EMAIL)
+        raw_variant["attachment"] = [
+            {
+                "emailAttachmentID": 1,
+                "fileName": "log.txt",
+                "fileType": "text/plain",
+                "fileBase64": "aGVsbG8=",
+            }
+        ]
+        session = _FakeSession(_FakeResponse(200, _envelope(raw_variant)))
+        gw = _gateway_with(session)
+
+        email = _fetch(gw)
+
+        assert email.attachments[0].content_base64 == "aGVsbG8="
 
 
 class TestFetchEmailErrors:
@@ -154,11 +181,34 @@ class TestFetchEmailErrors:
         with pytest.raises(EmailNotYetAvailable):
             _fetch(gw)
 
-    def test_empty_array_raises_email_not_yet_available(self) -> None:
-        session = _FakeSession(_FakeResponse(200, []))
+    def test_empty_result_raises_email_not_yet_available(self) -> None:
+        session = _FakeSession(_FakeResponse(200, _envelope(None)))
         gw = _gateway_with(session)
 
         with pytest.raises(EmailNotYetAvailable):
+            _fetch(gw)
+
+    def test_body_status_404_on_http_200_raises_email_not_yet_available(self) -> None:
+        # Unconfirmed-against-staging case: not-yet-available signalled
+        # via body status rather than the HTTP status code.
+        session = _FakeSession(_FakeResponse(200, _envelope(SAMPLE_EMAIL, status=404)))
+        gw = _gateway_with(session)
+
+        with pytest.raises(EmailNotYetAvailable):
+            _fetch(gw)
+
+    def test_body_status_500_on_http_200_raises_email_api_transient(self) -> None:
+        session = _FakeSession(_FakeResponse(200, _envelope(SAMPLE_EMAIL, status=500)))
+        gw = _gateway_with(session)
+
+        with pytest.raises(EmailApiTransient):
+            _fetch(gw)
+
+    def test_unexpected_response_shape_raises_email_api_transient(self) -> None:
+        session = _FakeSession(_FakeResponse(200, [SAMPLE_EMAIL]))
+        gw = _gateway_with(session)
+
+        with pytest.raises(EmailApiTransient):
             _fetch(gw)
 
     def test_5xx_raises_email_api_transient(self) -> None:

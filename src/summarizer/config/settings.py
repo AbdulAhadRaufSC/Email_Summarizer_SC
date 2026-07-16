@@ -44,7 +44,7 @@ class RunpodSettings(BaseSettings):
 class EmailApiSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="EMAIL_API_")
 
-    base_url: str = "https://maildata.stage.steppingdesk.com/api/emails"
+    base_url: str = "https://maildata.stage.steppingdesk.com/api/getMailBody"
     timeout_seconds: int = 30
 
 
