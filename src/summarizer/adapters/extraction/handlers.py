@@ -95,6 +95,20 @@ def extract_image(data: bytes) -> str:
     """
     import pytesseract  # type: ignore[import-untyped]
     from PIL import Image
+    import os
+    import sys
+
+    # On Windows, tesseract is often not in PATH by default.
+    if sys.platform == "win32":
+        tesseract_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe")
+        ]
+        for path in tesseract_paths:
+            if os.path.exists(path):
+                pytesseract.pytesseract.tesseract_cmd = path
+                break
 
     with Image.open(io.BytesIO(data)) as image:
         text: str = pytesseract.image_to_string(image)
