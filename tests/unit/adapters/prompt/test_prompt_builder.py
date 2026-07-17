@@ -120,7 +120,10 @@ class TestTruncation:
             )
         ]
         builder = TemplatePromptBuilder()
-        prompt = builder.build(conversation, attachments, context_budget=2048 + 1700)
+        # Budget large enough for the (longer, detail-guidance-heavy) system
+        # message plus the conversation once attachment text is dropped, but
+        # not large enough for the full attachment text too.
+        prompt = builder.build(conversation, attachments, context_budget=2048 + 2600)
 
         assert "attachment filler text" not in prompt.user_message
         assert "huge.txt" in prompt.user_message  # metadata retained

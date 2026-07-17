@@ -15,12 +15,83 @@ from __future__ import annotations
 
 import logging
 import re
+from html.parser import HTMLParser
 
 from email_reply_parser import EmailReplyParser  # type: ignore[import-untyped]
 
 from summarizer.domain.models import NormalizedConversation, NormalizedEmail, RawEmail
 
 logger = logging.getLogger(__name__)
+
+# Tags whose boundaries should force a line break when flattening HTML to
+# text, so e.g. "<p>Hi</p><p>There</p>" doesn't collapse into "HiThere".
+_BLOCK_TAGS = {
+    "p", "div", "br", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6",
+    "blockquote", "table", "ul", "ol",
+}
+# Tags whose text content is never real message content.
+_SKIP_TAGS = {"script", "style"}
+
+
+class _HtmlTextExtractor(HTMLParser):
+    """Minimal HTML-to-text flattener, stdlib only.
+
+    Not a general-purpose HTML renderer -- just enough to recover
+    readable text from an email's HTML body. ``HTMLParser`` is a plain
+    tokenizer (no DTD/external-entity resolution), so it carries none of
+    the XXE-style risk the extraction sandbox guards against for
+    XLSX/DOCX.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._chunks: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _SKIP_TAGS:
+            self._skip_depth += 1
+        elif tag in _BLOCK_TAGS:
+            self._chunks.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _SKIP_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+        elif tag in _BLOCK_TAGS:
+            self._chunks.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth == 0:
+            self._chunks.append(data)
+
+    def get_text(self) -> str:
+        lines = [line.strip() for line in "".join(self._chunks).splitlines()]
+        return "\n".join(line for line in lines if line)
+
+
+def _html_to_text(html: str | None) -> str | None:
+    """Best-effort plain-text recovery from an HTML email body.
+
+    Used as a last-resort fallback when neither ``latest_text_body`` nor
+    ``text_body`` is available. Agent replies composed in Stepping
+    Desk's own editor (rather than sent from a real email client) have
+    been observed to carry only ``mailBody`` (HTML) with no separate
+    plain-text part, unlike inbound customer email which always has one
+    -- without this fallback those replies silently vanish (empty body
+    -> dropped by ``normalize()``), producing a thread that reads as
+    customer-only.
+    """
+    if not html or not html.strip():
+        return None
+    parser = _HtmlTextExtractor()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:
+        logger.debug("HTML-to-text conversion failed", exc_info=True)
+        return None
+    text = parser.get_text()
+    return text or None
 
 # Common signature/disclaimer patterns (case-insensitive).
 _SIGNATURE_PATTERNS = [
@@ -93,7 +164,10 @@ class DefaultThreadNormalizer:
         Prefers ``latest_text_body`` (just the new reply, no quoted
         history) over ``text_body`` (the full accumulated text).  Falls
         back to ``email_reply_parser`` + regex stripping on ``text_body``
-        if ``latest_text_body`` is unavailable.
+        if ``latest_text_body`` is unavailable, and further falls back
+        to flattening ``html_body`` to text if there's no plain-text
+        body at all (see ``_html_to_text`` docstring for why this
+        matters).
         """
         # Prefer the latest-only body (pre-stripped by the Email API).
         text = email.latest_text_body
@@ -104,6 +178,9 @@ class DefaultThreadNormalizer:
 
         # Fall back to the full text body and strip quotes.
         text = email.text_body
+        if not text or not text.strip():
+            text = _html_to_text(email.html_body)
+
         if not text or not text.strip():
             return ""
 

@@ -84,7 +84,17 @@ class TemplatePromptBuilder:
             "Prompt built: ~%d tokens (budget: %d)",
             current_tokens, context_budget,
         )
-
+        ###########
+        logger.info(
+            "Prompt: %s",
+            Prompt(
+                system_message=system_msg,
+                user_message=user_msg,
+                json_schema=self._json_schema,
+                prompt_version=self._prompt_version,
+                estimated_tokens=current_tokens,
+        )
+        )
         return Prompt(
             system_message=system_msg,
             user_message=user_msg,
