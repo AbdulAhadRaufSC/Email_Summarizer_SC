@@ -43,18 +43,87 @@ class PendingAction(BaseModel):
     owner: Actor = Actor.UNKNOWN
 
 
-class ClassificationHints(BaseModel):
-    """Reserved for a future promptVersion or dedicated classifier.
-
-    Not populated by prompt v1: a generative model can't reliably classify
-    into a taxonomy it hasn't been given, so the shape exists now to avoid
-    a schema migration later, without forcing the model to guess today.
+class ModuleName(StrEnum):
+    """Stepping Desk's `module` dropdown (`DropdownConfig_Table`), as of
+    the 2026-07-17 snapshot. "Unassigned" is deliberately excluded --
+    `ClassificationHints.module` is already nullable, so `None` is the
+    one way to say "not enough signal," rather than having two.
     """
 
-    module: str | None = None
-    category: str | None = None
-    priority: str | None = None
-    suggested_team: str | None = None
+    COMPENSATION = "Compensation"
+    EC = "EC"
+    EC_PAYROLL = "EC Payroll"
+    LMS = "LMS"
+    ONB = "ONB"
+    PLATFORM = "Platform"
+    PMGM = "PMGM"
+    RCM = "RCM"
+    REPORTING_AND_ANALYTICS = "Reporting & Analytics"
+    RMK = "RMK"
+    INTEGRATION = "Integration"
+    PEOPLE_ANALYTICS = "People Analytics"
+    EC_BENEFITS = "EC Benefits"
+    TIME = "Time"
+    OTHERS = "Others"
+    PAYROLL_INPUT_BTP = "Payroll Input (BTP)"
+    OFB = "OFB"
+    QUALTRICS = "Qualtrics"
+    TAGS = "Tags"
+
+
+class PriorityLevel(StrEnum):
+    """Stepping Desk's `priority` dropdown, as of the 2026-07-17
+    snapshot. Note this list mixes what look like two different
+    taxonomies (severity: Urgent/High/Medium/Low, and SLA response
+    tiers: SR-1..SR-4) into one dropdown -- carried through as-is since
+    splitting it would be a business-data change, not a code decision.
+    """
+
+    URGENT = "Urgent"
+    HIGH = "High"
+    MEDIUM = "Medium"
+    LOW = "Low"
+    SR_1 = "SR-1"
+    SR_2 = "SR-2"
+    SR_3 = "SR-3"
+    SR_4 = "SR-4"
+
+
+class RequestType(StrEnum):
+    """Stepping Desk's `requestType` dropdown, as of the 2026-07-17
+    snapshot. "No Category" is excluded for the same reason
+    "Unassigned" is excluded from `ModuleName` -- `None` already covers
+    it.
+    """
+
+    CHANGE_REQUEST = "Change Request"
+    IMPLEMENTATION = "Implementation"
+    INCIDENT_MANAGEMENT = "Incident Management"
+    QUERY = "Query"
+    L1_SUPPORT = "L1 Support"
+
+
+class ClassificationHints(BaseModel):
+    """Advisory classification suggestions -- populated starting prompt
+    v2 (prompt v1 leaves this whole object null; see its system
+    template). Advisory only: nothing in this pipeline auto-writes
+    these into `Ticket`'s dropdown FK columns (categoryId/priorityId/
+    requestTypeId/...) -- a human reviews the suggestion and applies it
+    or not. Fields stay nullable for the same reason the rest of
+    `LlmSummaryOutput` does: the model is never forced to guess when
+    the conversation gives no basis for a value.
+
+    `current_status` (above) is intentionally NOT redone against
+    Stepping Desk's real ticket-status dropdown here, despite the
+    overlap -- that vocabulary has no clean equivalent for
+    `current_status`'s AWAITING_SUPPORT case, and conflating the LLM's
+    conversational read with the ticket's formal workflow state was a
+    decision explicitly deferred, not made, when this was added.
+    """
+
+    module: ModuleName | None = None
+    priority: PriorityLevel | None = None
+    request_type: RequestType | None = None
 
 
 class LlmSummaryOutput(BaseModel):

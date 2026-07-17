@@ -1,0 +1,64 @@
+{
+    "priority": [
+        "Urgent",
+        "High",
+        "Medium",
+        "Low",
+        "SR-1",
+        "SR-2",
+        "SR-3",
+        "SR-4"
+    ],
+    "module": [
+        "Unassigned",
+        "Compensation",
+        "EC",
+        "EC Payroll",
+        "LMS",
+        "ONB",
+        "Platform",
+        "PMGM",
+        "RCM",
+        "Reporting & Analytics",
+        "RMK",
+        "Integration",
+        "People Analytics",
+        "EC Benefits",
+        "Time",
+        "Others",
+        "Payroll Input (BTP)",
+        "OFB",
+        "Qualtrics",
+        "Tags"
+    ],
+    "status": [
+        "Pending Customer",
+        "On Hold",
+        "Open",
+        "Resolved",
+        "Pending SAP",
+        "Closed"
+    ],
+    "requestType": [
+        "Change Request",
+        "Implementation",
+        "Incident Management",
+        "Query",
+        "L1 Support",
+        "No Category"
+    ],
+    "crStatus": [
+        "Unassigned",
+        "Requirement Gathering",
+        "Configuration (IT-1)",
+        "Iteration 1 Demo",
+        "Configuration (IT-2)",
+        "Live",
+        "Production Migration",
+        "UAT",
+        "On Hold",
+        "Feasibility Study",
+        "Production Sanity Check",
+        "Effort Hour Approval Pend"
+    ]
+}

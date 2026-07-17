@@ -33,9 +33,22 @@ logger = logging.getLogger(__name__)
 # template and tokenizer. cl100k_base is close enough for that purpose.
 _ENCODING = tiktoken.get_encoding("cl100k_base")
 
-_SYSTEM_TEMPLATE = (Path(__file__).parent / "templates" / "v1" / "system.txt").read_text(
-    encoding="utf-8"
-)
+_TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+def _load_system_template(prompt_version: str) -> str:
+    """Load the template for ``prompt_version``, falling back to v1's if
+    that version has no dedicated template folder.
+
+    ``prompt_version`` doubles as a free-form provenance label recorded
+    on every summary row -- not every value passed here corresponds to
+    a real template folder, so the fallback keeps that decoupled: only
+    versions that actually ship their own ``templates/<version>/`` get
+    different instructions.
+    """
+    versioned_path = _TEMPLATES_DIR / prompt_version / "system.txt"
+    path = versioned_path if versioned_path.exists() else _TEMPLATES_DIR / "v1" / "system.txt"
+    return path.read_text(encoding="utf-8")
 
 
 def _count_tokens(text: str) -> int:
@@ -52,6 +65,7 @@ class TemplatePromptBuilder:
     def __init__(self, prompt_version: str = "v1") -> None:
         self._prompt_version = prompt_version
         self._json_schema = LlmSummaryOutput.model_json_schema()
+        self._system_template = _load_system_template(prompt_version)
 
     @property
     def prompt_version(self) -> str:
@@ -65,7 +79,7 @@ class TemplatePromptBuilder:
         context_budget: int,
     ) -> Prompt:
         schema_str = json.dumps(self._json_schema, indent=2)
-        system_msg = _SYSTEM_TEMPLATE.replace("{{JSON_SCHEMA}}", schema_str)
+        system_msg = self._system_template.replace("{{JSON_SCHEMA}}", schema_str)
         system_tokens = _count_tokens(system_msg)
 
         user_msg = self._assemble_user_message(

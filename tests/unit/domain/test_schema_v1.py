@@ -3,9 +3,13 @@ from pydantic import ValidationError
 
 from summarizer.domain.schema.v1 import (
     SCHEMA_VERSION,
+    ClassificationHints,
     CompletenessStatus,
     ContextCompleteness,
     LlmSummaryOutput,
+    ModuleName,
+    PriorityLevel,
+    RequestType,
     SourceInfo,
     SummaryDocument,
     TicketStatus,
@@ -82,6 +86,54 @@ class TestLlmSummaryOutput:
     def test_unknown_status_never_forces_a_guess(self) -> None:
         output = _minimal_llm_output(current_status=TicketStatus.UNKNOWN)
         assert output.current_status is TicketStatus.UNKNOWN
+
+
+class TestClassificationHints:
+    """Advisory-only classification suggestions (module/priority/
+    request_type), populated starting prompt v2 -- see v2/system.txt."""
+
+    def test_all_fields_default_to_none(self) -> None:
+        hints = ClassificationHints()
+        assert hints.module is None
+        assert hints.priority is None
+        assert hints.request_type is None
+
+    def test_accepts_valid_values_from_each_taxonomy(self) -> None:
+        hints = ClassificationHints(
+            module=ModuleName.EC_PAYROLL,
+            priority=PriorityLevel.SR_2,
+            request_type=RequestType.INCIDENT_MANAGEMENT,
+        )
+        assert hints.module == "EC Payroll"
+        assert hints.priority == "SR-2"
+        assert hints.request_type == "Incident Management"
+
+    def test_rejects_a_value_outside_the_taxonomy(self) -> None:
+        """Guards against the model (or a caller) smuggling in a value
+        that isn't a real Stepping Desk dropdown option -- e.g. a
+        plausible-sounding but nonexistent module name."""
+        with pytest.raises(ValidationError):
+            ClassificationHints(module="Not A Real Module")  # type: ignore[arg-type]
+
+    def test_unassigned_and_no_category_are_not_valid_choices(self) -> None:
+        """"Unassigned" (module) and "No Category" (requestType) are the
+        real dropdowns' own placeholder/untriaged values -- deliberately
+        excluded from the LLM-facing taxonomy since `None` already means
+        "no basis to classify," and having two ways to say that invites
+        drift between them."""
+        with pytest.raises(ValidationError):
+            ClassificationHints(module="Unassigned")  # type: ignore[arg-type]
+        with pytest.raises(ValidationError):
+            ClassificationHints(request_type="No Category")  # type: ignore[arg-type]
+
+    def test_classification_hints_embed_in_llm_summary_output(self) -> None:
+        output = _minimal_llm_output(
+            classification=ClassificationHints(module=ModuleName.TIME, priority=PriorityLevel.HIGH)
+        )
+        assert output.classification is not None
+        assert output.classification.module == "Time"
+        assert output.classification.priority == "High"
+        assert output.classification.request_type is None
 
 
 class TestSummaryDocument:

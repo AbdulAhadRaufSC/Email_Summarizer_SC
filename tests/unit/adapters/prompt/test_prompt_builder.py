@@ -57,6 +57,44 @@ class TestBuildHappyPath:
         prompt = builder.build(_conversation(), [], context_budget=16384)
         assert prompt.prompt_version == "v2-test"
 
+
+class TestVersionedTemplates:
+    """`prompt_version` is a free-form provenance label first (it's
+    recorded on every summary row regardless of whether a matching
+    template folder exists -- see test_prompt_version_property_and_field_match
+    above), but a version that *does* ship its own
+    templates/<version>/system.txt must actually load that file's
+    content, not silently reuse v1's."""
+
+    def test_v2_template_is_actually_loaded_and_differs_from_v1(self) -> None:
+        v1_prompt = TemplatePromptBuilder(prompt_version="v1").build(
+            _conversation(), [], context_budget=16384
+        )
+        v2_prompt = TemplatePromptBuilder(prompt_version="v2").build(
+            _conversation(), [], context_budget=16384
+        )
+        assert v1_prompt.system_message != v2_prompt.system_message
+        assert "classification" in v2_prompt.system_message.lower()
+
+    def test_v2_system_message_lists_the_classification_taxonomies(self) -> None:
+        prompt = TemplatePromptBuilder(prompt_version="v2").build(
+            _conversation(), [], context_budget=16384
+        )
+        assert "EC Payroll" in prompt.system_message
+        assert "SR-2" in prompt.system_message
+        assert "Incident Management" in prompt.system_message
+
+    def test_unknown_version_falls_back_to_v1_template_content(self) -> None:
+        fallback_prompt = TemplatePromptBuilder(prompt_version="v2-test").build(
+            _conversation(), [], context_budget=16384
+        )
+        v1_prompt = TemplatePromptBuilder(prompt_version="v1").build(
+            _conversation(), [], context_budget=16384
+        )
+        assert fallback_prompt.system_message == v1_prompt.system_message
+        # ...but the provenance label itself is untouched by the fallback.
+        assert fallback_prompt.prompt_version == "v2-test"
+
     def test_estimated_tokens_is_positive_and_reasonable(self) -> None:
         builder = TemplatePromptBuilder()
         prompt = builder.build(_conversation(), [], context_budget=16384)
@@ -120,10 +158,11 @@ class TestTruncation:
             )
         ]
         builder = TemplatePromptBuilder()
-        # Budget large enough for the (longer, detail-guidance-heavy) system
-        # message plus the conversation once attachment text is dropped, but
-        # not large enough for the full attachment text too.
-        prompt = builder.build(conversation, attachments, context_budget=2048 + 2600)
+        # Budget large enough for the (longer, detail-guidance-heavy, and
+        # now classification-schema-heavy) system message plus the
+        # conversation once attachment text is dropped, but not large
+        # enough for the full attachment text too.
+        prompt = builder.build(conversation, attachments, context_budget=2048 + 3200)
 
         assert "attachment filler text" not in prompt.user_message
         assert "huge.txt" in prompt.user_message  # metadata retained
