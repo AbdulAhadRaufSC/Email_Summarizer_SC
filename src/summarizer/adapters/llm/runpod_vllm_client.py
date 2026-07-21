@@ -53,7 +53,7 @@ class RunpodVllmClient:
         temperature: float = 0.0,
         top_p: float = 1.0,
         repetition_penalty: float = 1.05,
-        request_timeout_seconds: int = 300,
+        request_timeout_seconds: int = 600,
     ) -> None:
         self.model_name = model_name
         self.model_version = model_version
