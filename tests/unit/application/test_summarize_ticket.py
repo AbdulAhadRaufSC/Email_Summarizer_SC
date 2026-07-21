@@ -5,6 +5,7 @@ framework needed).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 import pytest
@@ -261,7 +262,7 @@ class TestHappyPath:
         orchestrator, fakes = _build_orchestrator(refs=refs, emails=emails)
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=102, message_id="msg-102")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=102, thread_id="thread-1")
         )
 
         assert result.write_outcome is WriteOutcome.WRITTEN
@@ -284,7 +285,7 @@ class TestHappyPath:
         orchestrator, fakes = _build_orchestrator(refs=refs, emails=emails)
 
         orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=102, message_id="msg-102")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=102, thread_id="thread-1")
         )
 
         email_api: FakeEmailGateway = fakes["email_api"]  # type: ignore[assignment]
@@ -300,7 +301,7 @@ class TestHappyPath:
         orchestrator, fakes = _build_orchestrator(refs=refs, emails=emails)
 
         orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=102, message_id="msg-102")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=102, thread_id="thread-b")
         )
 
         email_api: FakeEmailGateway = fakes["email_api"]  # type: ignore[assignment]
@@ -325,11 +326,44 @@ class TestHappyPath:
         orchestrator, fakes = _build_orchestrator(refs=refs, emails=emails, normalizer=normalizer)
 
         orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         seen = normalizer.normalize_calls[0]
         assert seen[0].is_note is True
+
+
+class TestThreadIdOverride:
+    def test_command_thread_id_overrides_ref_derived_thread_id_and_warns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        refs = [_ref(101, "msg-101", thread_id="thread-a")]
+        emails = {"msg-101": _raw_email("msg-101")}
+        orchestrator, fakes = _build_orchestrator(refs=refs, emails=emails)
+
+        with caplog.at_level(logging.WARNING):
+            orchestrator.execute(
+                SummarizeTicketCommand(
+                    ticket_id=1, email_meta_id=101, thread_id="thread-override"
+                )
+            )
+
+        email_api: FakeEmailGateway = fakes["email_api"]  # type: ignore[assignment]
+        call = next(c for c in email_api.fetch_call_kwargs if c["message_id"] == "msg-101")
+        assert call["thread_id"] == "thread-override"
+        assert any("thread-override" in record.getMessage() for record in caplog.records)
+
+    def test_matching_thread_id_does_not_warn(self, caplog: pytest.LogCaptureFixture) -> None:
+        refs = [_ref(101, "msg-101", thread_id="thread-a")]
+        emails = {"msg-101": _raw_email("msg-101")}
+        orchestrator, _ = _build_orchestrator(refs=refs, emails=emails)
+
+        with caplog.at_level(logging.WARNING):
+            orchestrator.execute(
+                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-a")
+            )
+
+        assert caplog.records == []
 
 
 class TestFrontierCheck:
@@ -342,7 +376,7 @@ class TestFrontierCheck:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=100, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=100, thread_id="thread-1")
         )
 
         assert result.write_outcome is WriteOutcome.SKIPPED_SUPERSEDED
@@ -360,7 +394,7 @@ class TestFrontierCheck:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         assert result.write_outcome is WriteOutcome.WRITTEN
@@ -375,7 +409,7 @@ class TestFrontierCheck:
 
         result = orchestrator.execute(
             SummarizeTicketCommand(
-                ticket_id=1, email_meta_id=100, message_id="msg-101", mode=WriteMode.REPROCESS
+                ticket_id=1, email_meta_id=100, thread_id="msg-101", mode=WriteMode.REPROCESS
             )
         )
 
@@ -395,7 +429,7 @@ class TestFrontierCheck:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         assert result.write_outcome is WriteOutcome.SKIPPED_SUPERSEDED
@@ -408,7 +442,7 @@ class TestTerminalFailures:
 
         with pytest.raises(ConversationUnreconstructable):
             orchestrator.execute(
-                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
             )
 
     def test_normalizer_producing_zero_emails_raises_conversation_unreconstructable(self) -> None:
@@ -421,7 +455,7 @@ class TestTerminalFailures:
 
         with pytest.raises(ConversationUnreconstructable):
             orchestrator.execute(
-                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
             )
 
     def test_llm_output_invalid_exhausted_raises_after_retry_budget(self) -> None:
@@ -435,7 +469,7 @@ class TestTerminalFailures:
 
         with pytest.raises(LlmOutputInvalidExhausted):
             orchestrator.execute(
-                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
             )
 
 
@@ -449,7 +483,7 @@ class TestTransientPropagation:
 
         with pytest.raises(EmailApiTransient):
             orchestrator.execute(
-                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+                SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
             )
 
 
@@ -466,7 +500,7 @@ class TestLlmRetryLoop:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         assert result.retry_count == 1
@@ -482,7 +516,7 @@ class TestLlmRetryLoop:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         assert result.retry_count == 0
@@ -502,7 +536,7 @@ class TestAttachmentCompleteness:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         assert result.status is PersistedSummaryStatus.OK
@@ -518,7 +552,7 @@ class TestAttachmentCompleteness:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         assert result.status is PersistedSummaryStatus.PARTIAL
@@ -540,7 +574,7 @@ class TestAttachmentCompleteness:
         )
 
         result = orchestrator.execute(
-            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, message_id="msg-101")
+            SummarizeTicketCommand(ticket_id=1, email_meta_id=101, thread_id="thread-1")
         )
 
         assert result.status is PersistedSummaryStatus.OK

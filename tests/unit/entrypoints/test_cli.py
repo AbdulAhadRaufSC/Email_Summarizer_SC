@@ -38,7 +38,7 @@ def _run(monkeypatch: pytest.MonkeyPatch, use_case: _FakeUseCase, argv: list[str
     return cli.main(argv)
 
 
-BASE_ARGS = ["--ticket-id", "1", "--email-meta-id", "101", "--message-id", "msg-101"]
+BASE_ARGS = ["--ticket-id", "1", "--email-meta-id", "101", "--thread-id", "thread-101"]
 
 
 class TestSuccessfulRun:
@@ -70,7 +70,7 @@ class TestArgumentParsing:
         assert command is not None
         assert command.ticket_id == 1
         assert command.email_meta_id == 101
-        assert command.message_id == "msg-101"
+        assert command.thread_id == "thread-101"
         assert command.mode is WriteMode.APPEND_ONLY
         assert command.triggered_by == "cli"
 

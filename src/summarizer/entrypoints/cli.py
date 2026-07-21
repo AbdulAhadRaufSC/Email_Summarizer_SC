@@ -9,7 +9,7 @@ change.
 
 Usage:
     python -m summarizer.entrypoints.cli --ticket-id 12345 \\
-        --email-meta-id 67890 --message-id "<abc@stepping-desk>"
+        --email-meta-id 67890 --thread-id "<thread-guid>"
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--ticket-id", type=int, required=True)
     parser.add_argument("--email-meta-id", type=int, required=True)
-    parser.add_argument("--message-id", type=str, required=True)
+    parser.add_argument("--thread-id", type=str, required=True)
     parser.add_argument(
         "--reprocess",
         action="store_true",
@@ -55,12 +55,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     settings = Settings()
     use_case = build_use_case(settings)
 
-    
-    #add thread_id and company_id
     command = SummarizeTicketCommand(
         ticket_id=args.ticket_id,
         email_meta_id=args.email_meta_id,
-        message_id=args.message_id,
+        thread_id=args.thread_id,
         mode=WriteMode.REPROCESS if args.reprocess else WriteMode.APPEND_ONLY,
         triggered_by=args.triggered_by,
     )

@@ -1,0 +1,110 @@
+thread "<b9bad273-c3aa-4b7e-930b-da11c3292dbd.d3a6b7f3-28c2-4ca9-9bf4-f19f41b4a83b.0b961760-c5ec-4593-8ae5-d6ee5bb412a4@emailsignatures365.codetwo.com>"
+
+emailMetaID 247331
+
+
+ticket ID 216655
+
+
+
+
+https://maildata.steppingdesk.com/api/getMailBody?ticketId=216655&threadId=<b9bad273-c3aa-4b7e-930b-da11c3292dbd.d3a6b7f3-28c2-4ca9-9bf4-f19f41b4a83b.0b961760-c5ec-4593-8ae5-d6ee5bb412a4@emailsignatures365.codetwo.com>&companyId=steppingcloud&emailMetaId=247331
+
+
+
+
+
+
+
+
+
+8	239939	134134	<PN0P287MB0151EA020C38315B8F5541D396C32@PN0P287MB0151.INDP287.PROD.OUTLOOK.COM>	Sarah reported that her leave request is stuck in Pending. The request was made yesterday, and her manager says they never received the approval. Support checked the workflow and found it is still assigned to her previous manager. Sarah confirmed her manager changed last week due to a department transfer.	{"source": {"email_count": 6, "frontier_email_meta_id": 134134}, "content": {"keywords": ["leave request", "Employee Central", "Pending", "manager assignment", "LR-98412", "EMP-4402"], "timeline": [{"date": null, "actor": "unknown", "description": "Manager assignment in Employee Central did not synchronize."}, {"date": null, "actor": "unknown", "description": "Support requested Leave Request ID, leave dates, and manager's employee ID."}, {"date": "2026-07-20T08:01:19.000Z", "actor": "unknown", "description": "Leave Request ID LR-98412, dates 15 Aug - 18 Aug, and manager ID EMP-4402 were provided."}, {"date": null, "actor": "unknown", "description": "Support checked the workflow and found it is still assigned to Sarah's previous manager."}], "human_summary": "Sarah reported that her leave request is stuck in Pending. The request was made yesterday, and her manager says they never received the approval. Support checked the workflow and found it is still assigned to her previous manager. Sarah confirmed her manager changed last week due to a department transfer.", "classification": null, "current_status": "awaiting_customer", "customer_issue": "Leave request LR-98412 is pending approval, but Sarah's new manager claims not to have received the request. The workflow is still assigned to Sarah's previous manager.", "business_impact": null, "pending_actions": [{"owner": "support", "description": "Determine why the workflow is still assigned to the previous manager and update it to Sarah's new manager."}], "final_resolution": null, "executive_summary": null, "resolution_attempts": ["Checked the workflow and found it is still assigned to the previous manager."]}, "attachments": [], "schema_version": "1.0", "context_completeness": {"status": "complete", "missing": []}}	qwen/qwen2.5-7b-instruct	2.5	v1	OK	manual-test-239939	219077	3142	400	0		2026-07-20 08:56:23	2026-07-20 08:56:23
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Abdul Rauf reported that candidates marked as 'Hired' in Recruiting are not appearing in Onboarding. This issue started yesterday at 3:15 PM IST. Candidate IDs and job requisition have been provided. The issue seems to occur after the Intelligent Services Event is triggered, and it has been escalated to the Integration Team.
+
+
+
+Sarah reported that her leave request is stuck in Pending. The request was made yesterday, and her manager says they never received the approval. Support checked the workflow and found it is still assigned to her previous manager. Sarah confirmed her manager changed last week due to a department transfer.	
+
+
+
+
+
+{"source": {"email_count": 6, "frontier_email_meta_id": 134134},
+
+ "content": {"keywords": ["leave request", "Employee Central", "Pending", "manager assignment", "LR-98412", "EMP-4402"],
+
+
+
+ "timeline": [{"date": null, "actor": "unknown", "description": "Manager assignment in Employee Central did not synchronize."}, {"date": null, "actor": "unknown", "description": "Support requested Leave Request ID, leave dates, and manager's employee ID."}, {"date": "2026-07-20T08:01:19.000Z", "actor": "unknown", "description": "Leave Request ID LR-98412, dates 15 Aug - 18 Aug, and manager ID EMP-4402 were provided."}, {"date": null, "actor": "unknown", "description": "Support checked the workflow and found it is still assigned to Sarah's previous manager."}],
+
+
+ "human_summary": "Sarah reported that her leave request is stuck in Pending. The request was made yesterday, and her manager says they never received the approval. Support checked the workflow and found it is still assigned to her previous manager. Sarah confirmed her manager changed last week due to a department transfer.", "classification": null, "current_status": "awaiting_customer", "customer_issue": "Leave request LR-98412 is pending approval, but Sarah's new manager claims not to have received the request. The workflow is still assigned to Sarah's previous manager.", 
+
+"business_impact": null,
+
+ "pending_actions": [{"owner": "support", "description": "Determine why the workflow is still assigned to the previous manager and update it to Sarah's new manager."}],
+
+
+ "final_resolution": null, "executive_summary": null,
+
+ "resolution_attempts": ["Checked the workflow and found it is still assigned to the previous manager."]}, 
+
+
+"attachments": [], "schema_version": "1.0", "context_completeness": {"status": "complete", "missing": []}}
+
+
+
+
+
+
+
+#remove attatchments if memory <
+
+
+
+summary text
+
+(png . (details))
+
+
+
+
+
+prompt injection
+
+excel files exceed limit 
+
+png is unreadable
+
+what is conversation is more than 20
+
+
+
+
+
+
+
+
+
+
+
+
+SQS enabled 
+
+

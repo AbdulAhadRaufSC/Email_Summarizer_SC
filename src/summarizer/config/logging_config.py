@@ -34,6 +34,7 @@ class _JsonFormatter(logging.Formatter):
         for key in (
             "ticket_id",
             "message_id",
+            "thread_id",
             "email_meta_id",
             "write_outcome",
             "status",

@@ -112,15 +112,33 @@ class SummarizeTicket:
         triggering_ref = next(
             (r for r in refs if r.email_meta_id == command.email_meta_id), None
         )
-        triggering_thread_id = triggering_ref.thread_id if triggering_ref else None
+        ref_thread_id = triggering_ref.thread_id if triggering_ref else None
+        if ref_thread_id is not None and ref_thread_id != command.thread_id:
+            logger.warning(
+                "command.thread_id %r differs from Email_Metadata-derived thread_id %r "
+                "for this email; using the command-supplied value",
+                command.thread_id,
+                ref_thread_id,
+                extra={
+                    "ticket_id": command.ticket_id,
+                    "email_meta_id": command.email_meta_id,
+                    "thread_id": command.thread_id,
+                },
+            )
+        triggering_message_id = (
+            triggering_ref.message_id if triggering_ref is not None else command.thread_id
+        )
 
         # Read-your-writes gate: the triggering email must be fetchable
         # before we summarize a thread that might not include it yet.
+        # `thread_id` is the command-supplied value, taken as an
+        # explicit override over whatever Email_Metadata already has on
+        # file for this email_meta_id (see the cross-check above).
         triggering_email = self._email_api.fetch_email(
             ticket_id=command.ticket_id,
             email_meta_id=command.email_meta_id,
-            message_id=command.message_id,
-            thread_id=triggering_thread_id,
+            message_id=triggering_message_id,
+            thread_id=command.thread_id,
         )
 
         raw_emails = self._fetch_all(command.ticket_id, refs, triggering_email)
@@ -156,7 +174,7 @@ class SummarizeTicket:
 
         write = SummaryWrite(
             document=document,
-            latest_message_id=command.message_id,
+            latest_message_id=triggering_email.message_id,
             model_name=self._llm.model_name,
             model_version=self._llm.model_version,
             prompt_version=self._prompt_builder.prompt_version,
