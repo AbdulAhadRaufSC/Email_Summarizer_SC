@@ -42,6 +42,10 @@ class _JsonFormatter(logging.Formatter):
             "retry_count",
             "token_input",
             "token_output",
+            "queue_url",
+            "count",
+            "receive_count",
+            "signal",
         ):
             value = getattr(record, key, None)
             if value is not None:

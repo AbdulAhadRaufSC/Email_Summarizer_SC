@@ -93,6 +93,31 @@ class PipelineSettings(BaseSettings):
     prompt_version: str = "v1"
 
 
+class SqsSettings(BaseSettings):
+    """Live-queue consumer knobs. AWS credentials/region (``AWS_ACCESS_KEY_ID``,
+    ``AWS_SECRET_ACCESS_KEY``, ``AWS_DEFAULT_REGION``) are read directly by
+    boto3's own default credential chain from the process environment --
+    ``load_dotenv()`` at module import time already puts ``.env`` values
+    there, so no separate settings fields are needed for them here."""
+
+    model_config = SettingsConfigDict(env_prefix="SQS_")
+
+    queue_url: str
+    max_messages: int = 10
+    wait_time_seconds: int = 20
+    # Deliberately generous: a real run has taken ~200s end to end, and
+    # the RunPod client alone has a 300s timeout. The heartbeat (see
+    # entrypoints/sqs_consumer.py) re-extends this while a job is still
+    # running, so this value is a floor, not the true worst case.
+    visibility_timeout: int = 120
+    # Re-extend visibility this many seconds before it would expire.
+    heartbeat_margin_seconds: int = 30
+    # Kept low: RunPod is a single shared GPU endpoint, and current
+    # volume is well under 100 tickets/day -- there is no benefit to
+    # high consumer-side parallelism here.
+    concurrency: int = 3
+
+
 class Settings(BaseSettings):
     """Top-level settings container.  Composed from domain-specific
     sub-settings, each loading from their own ``env_prefix``.
@@ -115,3 +140,4 @@ class Settings(BaseSettings):
     extraction: ExtractionSettings = Field(default_factory=ExtractionSettings)
     llm: LlmSettings = Field(default_factory=LlmSettings)
     pipeline: PipelineSettings = Field(default_factory=PipelineSettings)
+    sqs: SqsSettings = Field(default_factory=SqsSettings)
