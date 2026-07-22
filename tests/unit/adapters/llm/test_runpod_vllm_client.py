@@ -135,7 +135,7 @@ class TestRequestPayload:
             {"role": "user", "content": prompt.user_message},
         ]
 
-    def test_includes_guided_json_schema_and_sampling_params(self) -> None:
+    def test_includes_response_format_schema_and_sampling_params(self) -> None:
         session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))
         client = _client_with(
             session, temperature=0.1, top_p=0.9, repetition_penalty=1.2, max_output_tokens=512
@@ -151,7 +151,15 @@ class TestRequestPayload:
         assert body["temperature"] == 0.1
         assert body["top_p"] == 0.9
         assert body["repetition_penalty"] == 1.2
-        assert body["guided_json"] == prompt.json_schema
+        # Structured output must go out as OpenAI `response_format`, never
+        # as a flat top-level `guided_json` -- the live endpoint silently
+        # ignores the latter and runs unconstrained (see the client's
+        # module docstring for the 2026-07-22 proof).
+        assert body["response_format"] == {
+            "type": "json_schema",
+            "json_schema": {"name": "LlmSummaryOutput", "schema": prompt.json_schema},
+        }
+        assert "guided_json" not in body
 
     def test_sends_bearer_auth_header(self) -> None:
         session = _FakeSession(response=_FakeResponse(200, _COMPLETED_RESPONSE))

@@ -59,7 +59,7 @@ class TemplatePromptBuilder:
     """Builds a versioned, token-budgeted system/user message pair.
 
     The JSON schema is embedded in the system message and also returned
-    on the ``Prompt`` for the client to pass as ``guided_json``.
+    on the ``Prompt`` for the client to send as ``response_format``.
     """
 
     def __init__(self, prompt_version: str = "v1") -> None:

@@ -137,9 +137,19 @@ via the `outlines` backend.
   "temperature": 0.0,
   "top_p": 1.0,
   "repetition_penalty": 1.05,
-  "guided_json": { /* LlmSummaryOutput JSON schema */ }
+  "response_format": {
+    "type": "json_schema",
+    "json_schema": {
+      "name": "LlmSummaryOutput",
+      "schema": { /* LlmSummaryOutput JSON schema */ }
+    }
+  }
 }
 ```
+
+> ⚠️ Not `guided_json`. The endpoint accepts and silently discards unknown top-level fields,
+> so a `guided_json` body returns 200 with completely unconstrained output — indistinguishable
+> from success. See [04 — Backend](04-backend.md#6-llm-client).
 
 **Response** (OpenAI shape): text from `choices[0].message.content`; tokens from
 `usage.prompt_tokens` / `usage.completion_tokens`.

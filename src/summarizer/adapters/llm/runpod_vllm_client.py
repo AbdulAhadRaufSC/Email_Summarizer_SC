@@ -10,12 +10,27 @@ no job-id polling loop here, unlike the ``runpod_context.py`` reference
 snippet at the repo root (which targets the native handler of an
 unrelated prior project).
 
-Guided decoding uses vLLM's own OpenAI-server convention: a flat
-top-level ``guided_json`` field on the chat-completion request body.
-This is a stable, long-standing vLLM convention (distinct from the
-native handler's ``SamplingParams``-based guided-decoding field, which
-changed shape across vLLM versions) -- more confident here than the
-prior native-handler implementation was.
+Structured output uses the OpenAI ``response_format`` /
+``json_schema`` form, NOT vLLM's flat top-level ``guided_json`` field.
+
+This was originally implemented with ``guided_json`` on the belief that
+it was "a stable, long-standing vLLM convention". That was wrong for
+this deployment, and wrong in the worst way: **the endpoint silently
+ignores unknown top-level body fields**. No error, no warning, no
+degraded-mode signal -- requests simply ran with no constraint at all,
+and every schema-conformant response up to 2026-07-22 was the model
+merely obeying the prompt text rather than being constrained.
+
+Proven live 2026-07-22 with a schema the model could not satisfy by
+chance (``enum: ["ZQX_ALPHA", "ZQX_BETA"]``): the ``guided_json``
+request returned output byte-identical to an unconstrained control
+request, while the same schema sent as ``response_format`` returned
+``ZQX_ALPHA``. Re-verified against the real ``LlmSummaryOutput``
+schema, ``$defs``/``$ref`` included -- the server resolves those fine.
+
+Consequence worth remembering: this class of bug is invisible from the
+response. If structured output ever needs changing again, re-run that
+impossible-enum probe rather than trusting that the field was accepted.
 """
 
 from __future__ import annotations
@@ -82,7 +97,10 @@ class RunpodVllmClient:
             "temperature": self._temperature,
             "top_p": self._top_p,
             "repetition_penalty": self._repetition_penalty,
-            "guided_json": prompt.json_schema,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "LlmSummaryOutput", "schema": prompt.json_schema},
+            },
         }
 
         try:

@@ -128,7 +128,7 @@ route applies Qwen's chat template server-side).
 
 - **Schema is the contract.** The system template contains a `{{JSON_SCHEMA}}` placeholder,
   filled from `LlmSummaryOutput.model_json_schema()`. The same schema is passed to the LLM as
-  `guided_json`. One source of truth for structure.
+  `response_format`/`json_schema`. One source of truth for structure.
 - **Versioned templates.** `_load_system_template(prompt_version)` loads
   `templates/<version>/system.txt`, falling back to `v1` for any version without its own
   folder — so `prompt_version` doubles as a free-form provenance label
@@ -148,7 +148,13 @@ route applies Qwen's chat template server-side).
 synchronous POST** to
 `https://api.runpod.ai/v2/{endpoint_id}/openai/v1/chat/completions` (the OpenAI-compatible
 route, not RunPod's native `/run`+poll). Body: `model`, `messages`, `max_tokens`,
-`temperature`, `top_p`, `repetition_penalty`, and the flat `guided_json` field.
+`temperature`, `top_p`, `repetition_penalty`, and `response_format`.
+
+> ⚠️ Structured output **must** be sent as OpenAI `response_format`/`json_schema`, never as a
+> flat top-level `guided_json`. The endpoint silently ignores unknown top-level fields, so
+> `guided_json` ran fully unconstrained with no error of any kind — the pipeline's real
+> behaviour from inception until 2026-07-22. Proof and reproduction probe are in the client's
+> module docstring.
 
 Error mapping ([L100-102](../src/summarizer/adapters/llm/runpod_vllm_client.py#L100-L102)):
 - **5xx / connection / timeout → `LlmTransient`** (retry via SQS; there is no fallback LLM).

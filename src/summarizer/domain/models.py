@@ -139,8 +139,8 @@ class Prompt:
     instead of real special tokens.
 
     ``json_schema`` is both embedded in ``system_message`` (so the model
-    sees the target format) and passed separately for vLLM's
-    ``guided_json`` constrained decoding.
+    sees the target format) and passed separately for server-side
+    constrained decoding via OpenAI ``response_format``/``json_schema``.
     """
 
     system_message: str

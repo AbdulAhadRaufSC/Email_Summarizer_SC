@@ -153,12 +153,24 @@ class LlmSummaryOutput(BaseModel):
     )
     @classmethod
     def _coerce_null_list_to_empty(cls, value: Any) -> Any:
-        """vLLM's outlines guided-decoding backend isn't perfectly strict
-        about excluding ``null`` from array-typed fields -- confirmed live
-        2026-07-13, where the model emitted ``null`` for a "nothing to
-        report" list field despite the guided-JSON schema declaring it as
-        an array. Treat that the same as an empty list rather than
-        failing validation and burning an app-level retry on it.
+        """Defence in depth against an unconstrained model emitting
+        ``null`` for a "nothing to report" list field. Treat that as an
+        empty list rather than failing validation and burning an
+        app-level retry on it.
+
+        History matters here, because the original diagnosis was wrong:
+        when this was added (2026-07-13) it was attributed to vLLM's
+        outlines backend "not being perfectly strict" about array-typed
+        fields. It wasn't -- outlines was never engaged at all. The
+        client was sending its schema as a flat ``guided_json`` field
+        that the endpoint silently ignored, so every call ran fully
+        unconstrained (root-caused 2026-07-22; see
+        ``adapters/llm/runpod_vllm_client.py``'s module docstring).
+
+        With ``response_format`` now enforcing the schema server-side,
+        this coercion should be unreachable. It is kept deliberately: it
+        is free, and it is the only thing standing between us and a
+        silent repeat if structured output ever regresses again.
         """
         return [] if value is None else value
 
