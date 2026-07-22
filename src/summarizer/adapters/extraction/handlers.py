@@ -93,10 +93,11 @@ def extract_image(data: bytes) -> str:
     runs, which the caller's generic exception handling degrades to
     ``FAILED`` the same as any other extraction error.
     """
-    import pytesseract  # type: ignore[import-untyped]
-    from PIL import Image
     import os
     import sys
+
+    import pytesseract  # type: ignore[import-untyped]
+    from PIL import Image
 
     # On Windows, tesseract is often not in PATH by default.
     if sys.platform == "win32":
